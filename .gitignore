@@ -1,1 +1,5 @@
 *.env
+notebooks/
+scripts/
+docs/
+*.DS_Store

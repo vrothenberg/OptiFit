@@ -1,0 +1,50 @@
+###
+
+GET http://localhost:3000/ HTTP/1.1
+
+###
+
+GET http://localhost:3000/user HTTP/1.1
+
+
+###
+
+GET http://localhost:3000/user HTTP/1.1
+
+
+###
+
+POST http://localhost:3000/user
+content-type: application/json
+
+{
+    "id": 1,
+    "name": "vince",
+    "email": "vrothenberg@gmail.com",
+    "password": "password"
+}
+
+
+### 
+
+PATCH http://localhost:3000/user/1
+content-type: application/json
+
+{
+    "name": "Test",
+    "email": "test@gmail.com",
+    "role": "ENGINEER"
+}
+
+###
+
+DELETE http://localhost:3000/users/1
+
+
+
+###
+
+GET http://localhost:3000/comments
+    ?page=2
+    &pageSize=10
+
