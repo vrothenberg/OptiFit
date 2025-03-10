@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   View, 
@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
   Alert
 } from 'react-native';
-import { registerUser } from '@/services/userService';
+import { initialRegister } from '@/services/userService';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link, Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -27,48 +27,167 @@ export default function SignupScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
+  
+  // Validation states
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [confirmPasswordError, setConfirmPasswordError] = useState<string | null>(null);
+  const [termsError, setTermsError] = useState<string | null>(null);
+  const [generalError, setGeneralError] = useState<string | null>(null);
+  
+  // Clear errors when inputs change
+  useEffect(() => {
+    setEmailError(null);
+    setGeneralError(null);
+  }, [email]);
+  
+  useEffect(() => {
+    setPasswordError(null);
+    setGeneralError(null);
+  }, [password]);
+  
+  useEffect(() => {
+    setConfirmPasswordError(null);
+  }, [confirmPassword]);
+  
+  useEffect(() => {
+    setTermsError(null);
+  }, [agreeToTerms]);
 
+  // Validate email format
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const isValid = emailRegex.test(email);
+    if (!isValid) {
+      setEmailError('Please enter a valid email address');
+    }
+    return isValid;
+  };
+  
+  // Validate password strength
+  const validatePassword = (password: string): boolean => {
+    if (password.length < 8) {
+      setPasswordError('Password must be at least 8 characters long');
+      return false;
+    }
+    
+    // Check for at least one number
+    if (!/\d/.test(password)) {
+      setPasswordError('Password must contain at least one number');
+      return false;
+    }
+    
+    // Check for at least one special character
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+      setPasswordError('Password must contain at least one special character');
+      return false;
+    }
+    
+    return true;
+  };
+  
   const handleSignup = async () => {
-    // Basic validation
-    if (!email || !password || !confirmPassword) {
-      Alert.alert('Error', 'Please fill in all fields');
-      return;
+    // Reset all errors
+    setEmailError(null);
+    setPasswordError(null);
+    setConfirmPasswordError(null);
+    setTermsError(null);
+    setGeneralError(null);
+    
+    // Validate all fields
+    let isValid = true;
+    
+    if (!email) {
+      setEmailError('Email is required');
+      isValid = false;
+    } else if (!validateEmail(email)) {
+      isValid = false;
     }
-
-    if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
-      return;
+    
+    if (!password) {
+      setPasswordError('Password is required');
+      isValid = false;
+    } else if (!validatePassword(password)) {
+      isValid = false;
     }
-
+    
+    if (!confirmPassword) {
+      setConfirmPasswordError('Please confirm your password');
+      isValid = false;
+    } else if (password !== confirmPassword) {
+      setConfirmPasswordError('Passwords do not match');
+      isValid = false;
+    }
+    
     if (!agreeToTerms) {
-      Alert.alert('Error', 'Please agree to the Terms of Service');
+      setTermsError('You must agree to the Terms of Service');
+      isValid = false;
+    }
+    
+    if (!isValid) {
       return;
     }
 
     setIsLoading(true);
 
     try {
-      // Register the user with the API
+      // Initial registration with email and password
       const userData = {
         email,
         password,
       };
       
-      const user = await registerUser(userData);
+      console.log('Submitting registration data:', userData);
       
-      // Navigate to profile setup with the user ID
-      router.push({
-        pathname: '/auth/profile-setup',
-        params: { userId: user.id }
-      });
+      // This will store the tokens automatically
+      await initialRegister(userData);
+      
+      // Navigate to profile setup (no need to pass userId as we're using JWT)
+      router.push('/auth/profile-setup');
     } catch (error: any) {
-      console.error('Registration error:', error);
+      console.error('Registration error in component:', error);
       
-      // Display error message to user
-      if (error.response?.data?.message) {
-        Alert.alert('Registration Failed', error.response.data.message);
+      // Display specific error message
+      if (error && error.message) {
+        console.log('Error message in component:', error.message);
+        
+        // Check for specific error types
+        if (typeof error.message === 'string') {
+          // Try to parse the error message in case it's a stringified JSON
+          let errorMessage = error.message;
+          try {
+            // Check if the message is a stringified JSON object
+            if (error.message.startsWith('{') && error.message.endsWith('}')) {
+              const parsedError = JSON.parse(error.message);
+              // If it has a message property, use that
+              if (parsedError.message && typeof parsedError.message === 'string') {
+                errorMessage = parsedError.message;
+              }
+            }
+          } catch (e) {
+            // If parsing fails, use the original message
+            console.log('Error parsing error message:', e);
+          }
+          
+          // Now use the extracted error message
+          if (errorMessage.toLowerCase().includes('email')) {
+            console.log('Setting email error:', errorMessage);
+            setEmailError(errorMessage);
+          } else if (errorMessage.toLowerCase().includes('password')) {
+            console.log('Setting password error:', errorMessage);
+            setPasswordError(errorMessage);
+          } else {
+            console.log('Setting general error:', errorMessage);
+            setGeneralError(errorMessage);
+          }
+        } else {
+          // If error.message is not a string (e.g., it's an object)
+          console.log('Error message is not a string:', typeof error.message);
+          setGeneralError('Registration failed. Please try again.');
+        }
       } else {
-        Alert.alert('Registration Failed', 'An unexpected error occurred. Please try again.');
+        console.log('No error message available');
+        setGeneralError('An unexpected error occurred. Please try again.');
       }
     } finally {
       setIsLoading(false);
@@ -115,7 +234,7 @@ export default function SignupScreen() {
           
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Email</Text>
-            <View style={styles.inputContainer}>
+            <View style={[styles.inputContainer, emailError && styles.inputError]}>
               <FontAwesome name="envelope-o" size={20} color={Theme.COLORS.MUTED} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
@@ -127,11 +246,12 @@ export default function SignupScreen() {
                 autoCapitalize="none"
               />
             </View>
+            {emailError && <Text style={styles.errorText}>{emailError}</Text>}
           </View>
 
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Password</Text>
-            <View style={styles.inputContainer}>
+            <View style={[styles.inputContainer, passwordError && styles.inputError]}>
               <FontAwesome name="lock" size={20} color={Theme.COLORS.MUTED} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
@@ -152,11 +272,12 @@ export default function SignupScreen() {
                 />
               </TouchableOpacity>
             </View>
+            {passwordError && <Text style={styles.errorText}>{passwordError}</Text>}
           </View>
 
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Confirm Password</Text>
-            <View style={styles.inputContainer}>
+            <View style={[styles.inputContainer, confirmPasswordError && styles.inputError]}>
               <FontAwesome name="lock" size={20} color={Theme.COLORS.MUTED} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
@@ -167,13 +288,14 @@ export default function SignupScreen() {
                 secureTextEntry={!showPassword}
               />
             </View>
+            {confirmPasswordError && <Text style={styles.errorText}>{confirmPasswordError}</Text>}
           </View>
 
           <TouchableOpacity 
             style={styles.termsContainer}
             onPress={() => setAgreeToTerms(!agreeToTerms)}
           >
-            <View style={styles.checkbox}>
+            <View style={[styles.checkbox, termsError && styles.checkboxError]}>
               {agreeToTerms && (
                 <FontAwesome name="check" size={14} color={Theme.COLORS.PRIMARY} />
               )}
@@ -182,6 +304,13 @@ export default function SignupScreen() {
               I agree to the <Text style={styles.termsLink}>Terms of Service</Text> and <Text style={styles.termsLink}>Privacy Policy</Text>
             </Text>
           </TouchableOpacity>
+          {termsError && <Text style={styles.errorText}>{termsError}</Text>}
+          
+          {generalError && (
+            <View style={styles.generalErrorContainer}>
+              <Text style={styles.generalErrorText}>{generalError}</Text>
+            </View>
+          )}
 
           <TouchableOpacity 
             style={[styles.signupButton, !agreeToTerms && styles.signupButtonDisabled]}
@@ -225,6 +354,29 @@ export default function SignupScreen() {
 }
 
 const styles = StyleSheet.create({
+  errorText: {
+    color: Theme.COLORS.ERROR,
+    fontSize: 12,
+    marginTop: 4,
+    marginLeft: 2,
+  },
+  inputError: {
+    borderColor: Theme.COLORS.ERROR,
+  },
+  checkboxError: {
+    borderColor: Theme.COLORS.ERROR,
+  },
+  generalErrorContainer: {
+    backgroundColor: 'rgba(255, 0, 0, 0.1)',
+    borderRadius: 4,
+    padding: 10,
+    marginBottom: 15,
+  },
+  generalErrorText: {
+    color: Theme.COLORS.ERROR,
+    fontSize: 14,
+    textAlign: 'center',
+  },
   container: {
     flex: 1,
   },

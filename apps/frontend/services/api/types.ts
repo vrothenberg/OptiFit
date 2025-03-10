@@ -55,6 +55,27 @@ export interface User {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  profile?: UserProfile;
+}
+
+export interface UserProfile {
+  userId: number;
+  dateOfBirth?: string;
+  gender?: string;
+  heightCm?: number;
+  weightKg?: number;
+  activityLevel?: string;
+  dietaryPreferences?: any;
+  exercisePreferences?: any;
+  medicalConditions?: string[];
+  supplements?: any;
+  sleepPatterns?: any;
+  stressLevel?: number;
+  nutritionInfo?: any;
+  location?: any;
+  additionalInfo?: any;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface UserPreferences {

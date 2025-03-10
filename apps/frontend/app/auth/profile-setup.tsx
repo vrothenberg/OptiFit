@@ -12,7 +12,8 @@ import {
   Alert
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
-import { updateCurrentUser, getCurrentUser } from '@/services/userService';
+import { completeRegistration, getCurrentUser } from '@/services/userService';
+import apiClient from '@/services/api/client';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -22,8 +23,7 @@ import Theme from '@/constants/Theme';
 
 export default function ProfileSetupScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams();
-  const userId = params.userId as string;
+  // No need for userId param anymore as we're using JWT
   
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -33,29 +33,83 @@ export default function ProfileSetupScreen() {
   const [weight, setWeight] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+  
+  // Validation states
+  const [firstNameError, setFirstNameError] = useState<string | null>(null);
+  const [lastNameError, setLastNameError] = useState<string | null>(null);
+  const [ageError, setAgeError] = useState<string | null>(null);
+  const [heightError, setHeightError] = useState<string | null>(null);
+  const [weightError, setWeightError] = useState<string | null>(null);
+  const [generalError, setGeneralError] = useState<string | null>(null);
+  
+  // Clear errors when inputs change
+  useEffect(() => {
+    setFirstNameError(null);
+    setGeneralError(null);
+  }, [firstName]);
+  
+  useEffect(() => {
+    setLastNameError(null);
+    setGeneralError(null);
+  }, [lastName]);
+  
+  useEffect(() => {
+    setAgeError(null);
+    setGeneralError(null);
+  }, [age]);
+  
+  useEffect(() => {
+    setHeightError(null);
+  }, [height]);
+  
+  useEffect(() => {
+    setWeightError(null);
+  }, [weight]);
 
-  // Load user data if available
+  // Load user data if available, with a delay to ensure token is stored
   useEffect(() => {
     const loadUserData = async () => {
       try {
-        const user = await getCurrentUser();
+        // Add a longer delay to ensure token is stored
+        await new Promise(resolve => setTimeout(resolve, 2000));
         
-        // If user has a name, split it into first and last name
-        if (user.name) {
-          const nameParts = user.name.split(' ');
-          if (nameParts.length > 0) {
-            setFirstName(nameParts[0]);
-            if (nameParts.length > 1) {
-              setLastName(nameParts.slice(1).join(' '));
+        // Check if we have a token before trying to get user data
+        const isAuth = await apiClient.isAuthenticated();
+        console.log('Is authenticated:', isAuth);
+        
+        if (isAuth) {
+          const user = await getCurrentUser();
+          console.log('User data loaded:', user);
+          
+          // Set first and last name if available
+          if (user.firstName && user.firstName !== 'Pending') {
+            setFirstName(user.firstName);
+          }
+          
+          if (user.lastName && user.lastName !== 'Registration') {
+            setLastName(user.lastName);
+          }
+          
+          // Set profile data if available
+          if (user.profile) {
+            if (user.profile.gender) {
+              setGender(user.profile.gender);
+            }
+            
+            if (user.profile.heightCm) {
+              setHeight(user.profile.heightCm.toString());
+            }
+            
+            if (user.profile.weightKg) {
+              setWeight(user.profile.weightKg.toString());
             }
           }
+        } else {
+          console.log('No authentication token found, skipping user data load');
         }
-        
-        // Set other user data if available
-        if (user.age) setAge(user.age.toString());
-        
       } catch (error) {
-        console.error('Error loading user data:', error);
+        console.log('Error loading user data (expected for new users):', error);
+        // For new users, this is expected - don't show an error
       } finally {
         setInitialLoading(false);
       }
@@ -64,39 +118,116 @@ export default function ProfileSetupScreen() {
     loadUserData();
   }, []);
 
+  // Validate numeric input
+  const validateNumeric = (value: string, fieldName: string, setError: (error: string | null) => void): boolean => {
+    if (!value) {
+      return true; // Empty is valid for optional fields
+    }
+    
+    const num = Number(value);
+    if (isNaN(num)) {
+      setError(`${fieldName} must be a number`);
+      return false;
+    }
+    
+    if (num <= 0) {
+      setError(`${fieldName} must be greater than 0`);
+      return false;
+    }
+    
+    return true;
+  };
+  
   const handleContinue = async () => {
-    // Basic validation
-    if (!firstName || !lastName || !age) {
-      Alert.alert('Error', 'Please fill in all required fields');
+    // Reset all errors
+    setFirstNameError(null);
+    setLastNameError(null);
+    setAgeError(null);
+    setHeightError(null);
+    setWeightError(null);
+    setGeneralError(null);
+    
+    // Validate all fields
+    let isValid = true;
+    
+    if (!firstName) {
+      setFirstNameError('First name is required');
+      isValid = false;
+    }
+    
+    if (!lastName) {
+      setLastNameError('Last name is required');
+      isValid = false;
+    }
+    
+    if (!age) {
+      setAgeError('Age is required');
+      isValid = false;
+    } else if (!validateNumeric(age, 'Age', setAgeError)) {
+      isValid = false;
+    }
+    
+    // Optional fields validation
+    if (height && !validateNumeric(height, 'Height', setHeightError)) {
+      isValid = false;
+    }
+    
+    if (weight && !validateNumeric(weight, 'Weight', setWeightError)) {
+      isValid = false;
+    }
+    
+    if (!isValid) {
       return;
     }
 
     setIsLoading(true);
 
     try {
-      // Prepare user data for update
-      const userData = {
-        name: `${firstName} ${lastName}`,
+      // Prepare profile data for completion
+      const profileData = {
+        firstName,
+        lastName,
         age: parseInt(age),
         // Add optional fields if they have values
         ...(gender && { gender }),
-        ...(height && { height: parseInt(height) }),
-        ...(weight && { weight: parseInt(weight) }),
+        ...(height && { heightCm: parseInt(height) }),
+        ...(weight && { weightKg: parseInt(weight) }),
+        ...(gender && { activityLevel: 'moderate' }), // Default value
       };
       
-      // Update user profile
-      await updateCurrentUser(userData);
+      // Complete registration with profile data
+      await completeRegistration(profileData);
       
       // Navigate to onboarding questionnaire
       router.push('/onboarding');
     } catch (error: any) {
       console.error('Profile update error:', error);
       
-      // Display error message to user
-      if (error.response?.data?.message) {
-        Alert.alert('Update Failed', error.response.data.message);
+      // Display specific error message
+      if (error.message) {
+        // Check for specific error types
+        if (error.message.includes('first') || error.message.includes('firstName')) {
+          setFirstNameError(error.message);
+        } else if (error.message.includes('last') || error.message.includes('lastName')) {
+          setLastNameError(error.message);
+        } else if (error.message.includes('age')) {
+          setAgeError(error.message);
+        } else if (error.message.includes('height')) {
+          setHeightError(error.message);
+        } else if (error.message.includes('weight')) {
+          setWeightError(error.message);
+        } else if (error.message.includes('session') || error.message.includes('expired')) {
+          // Handle session expiration
+          setGeneralError('Your session has expired. Please log in again.');
+          // Redirect to login after a delay
+          setTimeout(() => {
+            router.push('/auth/login');
+          }, 2000);
+        } else {
+          setGeneralError(error.message);
+        }
       } else {
-        Alert.alert('Update Failed', 'An unexpected error occurred. Please try again.');
+        setGeneralError('An unexpected error occurred. Please try again.');
       }
     } finally {
       setIsLoading(false);
@@ -134,27 +265,35 @@ export default function ProfileSetupScreen() {
           </View>
         ) : (
           <View style={styles.formContainer}>
+          {generalError && (
+            <View style={styles.generalErrorContainer}>
+              <Text style={styles.generalErrorText}>{generalError}</Text>
+            </View>
+          )}
+          
           <View style={styles.inputRow}>
             <View style={[styles.inputGroup, styles.inputHalf]}>
               <Text style={styles.inputLabel}>First Name <Text style={styles.required}>*</Text></Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, firstNameError && styles.inputError]}
                 placeholder="First Name"
                 placeholderTextColor={Theme.COLORS.PLACEHOLDER}
                 value={firstName}
                 onChangeText={setFirstName}
               />
+              {firstNameError && <Text style={styles.errorText}>{firstNameError}</Text>}
             </View>
             
             <View style={[styles.inputGroup, styles.inputHalf]}>
               <Text style={styles.inputLabel}>Last Name <Text style={styles.required}>*</Text></Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, lastNameError && styles.inputError]}
                 placeholder="Last Name"
                 placeholderTextColor={Theme.COLORS.PLACEHOLDER}
                 value={lastName}
                 onChangeText={setLastName}
               />
+              {lastNameError && <Text style={styles.errorText}>{lastNameError}</Text>}
             </View>
           </View>
 
@@ -162,13 +301,14 @@ export default function ProfileSetupScreen() {
             <View style={[styles.inputGroup, styles.inputHalf]}>
               <Text style={styles.inputLabel}>Age <Text style={styles.required}>*</Text></Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, ageError && styles.inputError]}
                 placeholder="Age"
                 placeholderTextColor={Theme.COLORS.PLACEHOLDER}
                 value={age}
                 onChangeText={setAge}
                 keyboardType="number-pad"
               />
+              {ageError && <Text style={styles.errorText}>{ageError}</Text>}
             </View>
             
             <View style={[styles.inputGroup, styles.inputHalf]}>
@@ -232,25 +372,27 @@ export default function ProfileSetupScreen() {
             <View style={[styles.inputGroup, styles.inputHalf]}>
               <Text style={styles.inputLabel}>Height (cm)</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, heightError && styles.inputError]}
                 placeholder="Height"
                 placeholderTextColor={Theme.COLORS.PLACEHOLDER}
                 value={height}
                 onChangeText={setHeight}
                 keyboardType="number-pad"
               />
+              {heightError && <Text style={styles.errorText}>{heightError}</Text>}
             </View>
             
             <View style={[styles.inputGroup, styles.inputHalf]}>
               <Text style={styles.inputLabel}>Weight (kg)</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, weightError && styles.inputError]}
                 placeholder="Weight"
                 placeholderTextColor={Theme.COLORS.PLACEHOLDER}
                 value={weight}
                 onChangeText={setWeight}
                 keyboardType="number-pad"
               />
+              {weightError && <Text style={styles.errorText}>{weightError}</Text>}
             </View>
           </View>
 
@@ -277,6 +419,26 @@ export default function ProfileSetupScreen() {
 }
 
 const styles = StyleSheet.create({
+  errorText: {
+    color: Theme.COLORS.ERROR,
+    fontSize: 12,
+    marginTop: 4,
+    marginLeft: 2,
+  },
+  inputError: {
+    borderColor: Theme.COLORS.ERROR,
+  },
+  generalErrorContainer: {
+    backgroundColor: 'rgba(255, 0, 0, 0.1)',
+    borderRadius: 4,
+    padding: 10,
+    marginBottom: 15,
+  },
+  generalErrorText: {
+    color: Theme.COLORS.ERROR,
+    fontSize: 14,
+    textAlign: 'center',
+  },
   container: {
     flex: 1,
   },

@@ -1,7 +1,10 @@
 import { Controller, Post, Body, UseGuards, Get, UnauthorizedException } from '@nestjs/common';
+import { Public } from './decorators/public.decorator';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import { InitialRegisterDto } from './dto/initial-register.dto';
+import { CompleteRegistrationDto } from './dto/complete-registration.dto';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
@@ -12,6 +15,29 @@ import { Tokens } from './interfaces/tokens.interface';
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
+  @Public()
+  @Post('register')
+  @ApiOperation({ summary: 'Initial user registration with email and password' })
+  @ApiResponse({ status: 201, description: 'Registration successful' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  @ApiResponse({ status: 409, description: 'Email already exists' })
+  async register(@Body() initialRegisterDto: InitialRegisterDto): Promise<Tokens> {
+    return this.authService.register(initialRegisterDto);
+  }
+
+  @Post('complete-registration')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Complete user registration with profile data' })
+  @ApiResponse({ status: 200, description: 'Profile updated successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async completeRegistration(
+    @CurrentUser() user: User,
+    @Body() completeRegistrationDto: CompleteRegistrationDto
+  ): Promise<User> {
+    return this.authService.completeRegistration(user.id, completeRegistrationDto);
+  }
 
   @UseGuards(LocalAuthGuard)
   @Post('login')

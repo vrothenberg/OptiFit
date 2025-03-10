@@ -1,6 +1,6 @@
 # OptiFit AI
 
-**OptiFit AI** is a wellness and performance optimization app designed to provide personalized health insights, streamline fitness tracking, and enhance user well-being through AI-driven recommendations. Currently in the **design stage**, this project emphasizes thoughtful planning and a solid foundation for scalable development.
+**OptiFit AI** is a wellness and performance optimization app designed to provide personalized health insights, streamline fitness tracking, and enhance user well-being through AI-driven recommendations. The project is now in the **implementation stage** with a monorepo structure containing both backend microservices and a React Native frontend.
 
 ---
 
@@ -12,8 +12,15 @@
   - [**Vision**](#vision)
   - [**Key Features**](#key-features)
   - [**Project Structure**](#project-structure)
+  - [**Technical Stack**](#technical-stack)
+    - [Backend](#backend)
+    - [Frontend](#frontend)
+    - [DevOps (Planned)](#devops-planned)
   - [**Documentation**](#documentation)
   - [**Getting Started**](#getting-started)
+    - [Prerequisites](#prerequisites)
+    - [Backend Setup](#backend-setup)
+    - [Frontend Setup](#frontend-setup)
   - [**Contributing**](#contributing)
   - [**License**](#license)
 
@@ -21,9 +28,9 @@
 
 ## **Overview**
 
-OptiFit AI integrates advanced technology with health science to empower users in achieving their fitness and wellness goals. By leveraging AI, wearables, and user-friendly design, the app aims to deliver a seamless and effective health optimization experience.
+OptiFit AI integrates advanced technology with health science to empower users in achieving their fitness and wellness goals. By leveraging AI, wearables, and user-friendly design, the app aims to deliver a seamless and effective health optimization experience focused on circadian rhythm, diet, and exercise.
 
-This repository contains design documents, architectural plans, and research to ensure a robust and scalable app foundation.
+The project follows a microservices architecture with a React Native frontend, allowing for independent development, deployment, and scaling of each service.
 
 ---
 
@@ -39,52 +46,87 @@ To create a **holistic health assistant** that combines **nutrition tracking**, 
 - **Integrated Tracking:** Seamless logging of food, sleep, and workouts.
 - **Wearable Integration:** Support for popular health devices and platforms.
 - **Community Engagement:** Social challenges, achievements, and shared goals.
-- **Scalable Design:** Built with a future-proof architecture for growth.
+- **Scalable Design:** Built with a future-proof microservices architecture for growth.
 
 ---
 
 ## **Project Structure**
 
-The current project structure reflects the focus on **planning and design**. Development and source code directories are placeholders for future implementation.
+The project is organized as a monorepo with separate directories for backend microservices and the frontend application.
 
 ```plaintext
 .
 ├── LICENSE                # License for the repository
 ├── README.md              # Project overview and guide
-├── docs/                  # Documentation and research
-│   ├── adr/               # Architecture Decision Records
-│   ├── design/            # Design documents (wireframes, use cases, etc.)
-│   ├── prototypes/        # Early prototypes and mockups
-│   └── research/          # User personas and competitive analysis
-├── scripts/               # Utility scripts for setup and deployment
-└── src/                   # Placeholder for backend and frontend source code
-    ├── backend/           # Backend service (Django, REST APIs)
-    └── frontend/          # Frontend service (Flutter)
+├── apps/                  # Application code
+│   ├── backend/           # Backend microservices
+│   │   ├── services/      # Individual microservices
+│   │   │   ├── user-service/     # Authentication and user management (implemented)
+│   │   │   ├── logging-service/  # Food, exercise, and sleep logging (planned)
+│   │   │   └── ai-service/       # AI recommendations and chat (planned)
+│   │   └── docker-compose.yml    # Docker configuration for services
+│   └── frontend/          # React Native Expo application
+│       ├── app/           # Expo Router application structure
+│       ├── components/    # Reusable UI components
+│       ├── services/      # API service integrations
+│       ├── constants/     # Application constants
+│       ├── assets/        # Images, fonts, and other static assets
+│       └── docs/          # Frontend and API documentation
+├── docs/                  # Project documentation (legacy)
+└── notebooks/             # Jupyter notebooks for data analysis
 ```
+
+---
+
+## **Technical Stack**
+
+### Backend
+- **Framework:** NestJS microservices architecture
+- **Language:** TypeScript
+- **Authentication:** JWT-based authentication with refresh tokens
+- **Database:** PostgreSQL (with potential migration to TimescaleDB for logging service)
+- **API:** RESTful API endpoints with comprehensive documentation
+
+### Frontend
+- **Framework:** React Native with Expo
+- **Navigation:** Expo Router
+- **State Management:** React Context (with potential for Redux)
+- **API Communication:** Axios with request/response interceptors
+- **Authentication:** Secure token storage with expo-secure-store
+
+### DevOps (Planned)
+- **Containerization:** Docker
+- **Cloud Platform:** Google Cloud Platform (GCP)
+- **CI/CD:** GitHub Actions
+- **Monitoring:** Cloud Monitoring
+- **Logging:** Google Cloud Logging
 
 ---
 
 ## **Documentation**
 
-Detailed documentation for the project is available in the `docs/` directory:
+The most up-to-date documentation is available in the `apps/frontend/docs/` directory:
 
-- **[Design Documents](docs/design/):** 
-  - [Technical Stack](docs/design/technical-stack.md)
-  - [Wireframes](docs/design/wireframes/)
-  - [UX Design Considerations](docs/design/ux-design-considerations.md)
-- **[Architecture Decision Records (ADR)](docs/adr/):** Key decisions on frameworks, tools, and design choices.
-- **[Research](docs/research/):** 
-  - [Competitive Analysis](docs/research/competitive-analysis.md)
-  - [User Personas](docs/research/user-personas.md)
-- **[Deployment and Testing](docs/design/):**
-  - [Deployment Plan](docs/design/deployment-plan.md)
-  - [Testing Strategy](docs/design/testing-strategy.md)
+- **[Architecture Overview](apps/frontend/docs/ARCHITECTURE_OVERVIEW.md):** Comprehensive overview of the system architecture, components, and interactions.
+- **[Feature Roadmap](apps/frontend/docs/FEATURE_ROADMAP.md):** Detailed roadmap of features and implementation priorities.
+- **API Documentation:**
+  - [User Service API](apps/frontend/docs/USER_SERVICE_API.md)
+  - [Logging Service API](apps/frontend/docs/LOGGING_SERVICE_API.md) (planned)
+  - [AI Service API](apps/frontend/docs/AI_SERVICE_API.md) (planned)
+
+Legacy documentation is still available in the `docs/` directory but may not reflect the current implementation.
 
 ---
 
 ## **Getting Started**
 
-Since the project is in the design stage, no codebase is available to run yet. To explore the design:
+### Prerequisites
+- Node.js (v18 or later)
+- npm or yarn
+- PostgreSQL
+- Expo CLI (for frontend development)
+
+### Backend Setup
 
 1. **Clone the Repository:**
    ```bash
@@ -92,19 +134,48 @@ Since the project is in the design stage, no codebase is available to run yet. T
    cd optifit
    ```
 
-2. **Explore Documentation:**
-   Navigate to the `docs/` directory for detailed plans and insights.
+2. **Set Up User Service:**
+   ```bash
+   cd apps/backend/services/user-service
+   npm install
+   npm run start:dev
+   ```
 
-3. **Prototypes:**
-   View early mockups in `docs/prototypes/mockups/`.
+3. **API Documentation:**
+   The User Service API documentation is available at `apps/backend/services/user-service/API_DOCUMENTATION.md`.
+
+### Frontend Setup
+
+1. **Install Dependencies:**
+   ```bash
+   cd apps/frontend
+   npm install
+   ```
+
+2. **Start the Development Server:**
+   ```bash
+   npm start
+   ```
+
+3. **Run on Specific Platform:**
+   ```bash
+   # For iOS
+   npm run ios
+   
+   # For Android
+   npm run android
+   
+   # For Web
+   npm run web
+   ```
 
 ---
 
 ## **Contributing**
 
-We welcome contributions to improve the project. If you’re interested:
+We welcome contributions to improve the project. If you're interested:
 
-1. Check out the [docs/README.md](docs/README.md) for guidance on documentation contributions.
+1. Check out the architecture and feature roadmap documentation for guidance on the project direction.
 2. Submit issues or suggestions via [GitHub Issues](https://github.com/your-organization/optifit/issues).
 3. Fork the repository and submit a pull request for proposed changes.
 

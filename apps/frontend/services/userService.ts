@@ -5,6 +5,7 @@
  */
 
 import apiClient from './api/client';
+import { Platform } from 'react-native';
 import {
   User,
   LoginRequest,
@@ -16,7 +17,143 @@ import {
 } from './api/types';
 
 /**
- * Register a new user
+ * Initial registration with email and password
+ * @param userData User email and password
+ * @returns Login response with access token and refresh token
+ * @throws Error with specific message from the backend or a generic message
+ */
+export async function initialRegister(userData: { email: string, password: string }): Promise<LoginResponse> {
+  try {
+    console.log('Registering user with email:', userData.email);
+    console.log('Current platform:', Platform.OS);
+    const response = await apiClient.userServicePost<LoginResponse>('/auth/register', userData);
+    console.log('Registration successful, received tokens:', 
+      response.data.accessToken ? 'Access token received' : 'No access token', 
+      response.data.refreshToken ? 'Refresh token received' : 'No refresh token'
+    );
+    
+    // Store both tokens
+    await apiClient.setAuthToken(response.data.accessToken);
+    console.log('Access token stored');
+    await apiClient.setRefreshToken(response.data.refreshToken);
+    console.log('Refresh token stored');
+    
+    // Verify token was stored
+    const isAuth = await apiClient.isAuthenticated();
+    console.log('Authentication status after registration:', isAuth);
+    
+    return response.data;
+  } catch (error: any) {
+    console.error('Error during initial registration:', error);
+    
+    // Extract specific error message from the response if available
+    if (error.response?.data) {
+      const errorData = error.response.data;
+      
+      // Get the error message, ensuring it's a string
+      let errorMessage: string;
+      
+      // Handle the case where the entire errorData is the error object with a message property
+      if (typeof errorData === 'object' && errorData.message) {
+        if (typeof errorData.message === 'string') {
+          // If message is already a string, use it directly
+          errorMessage = errorData.message;
+        } else if (Array.isArray(errorData.message)) {
+          // If message is an array (NestJS validation errors), join them
+          errorMessage = errorData.message.join(', ');
+        } else if (typeof errorData.message === 'object') {
+          // If message is an object, try to extract the actual error message
+          if (error.response.status === 409) {
+            errorMessage = 'User with this email already exists';
+          } else {
+            errorMessage = 'Invalid email or password';
+          }
+        } else {
+          // Fallback for other cases
+          errorMessage = 'Registration failed. Please try again.';
+        }
+      } else {
+        // Fallback if errorData doesn't have a message property
+        errorMessage = 'Registration failed. Please try again.';
+      }
+      
+      throw new Error(errorMessage);
+    }
+    
+    // If we couldn't extract a specific message, throw a generic one
+    throw new Error('Registration failed. Please try again.');
+  }
+}
+
+/**
+ * Complete registration with profile data
+ * @param profileData User profile data
+ * @returns The updated user
+ * @throws Error with specific message from the backend or a generic message
+ */
+export async function completeRegistration(profileData: any): Promise<User> {
+  try {
+    console.log('Completing registration with profile data:', JSON.stringify(profileData));
+    
+    // Verify token is available before making the request
+    const isAuth = await apiClient.isAuthenticated();
+    console.log('Authentication status before completing registration:', isAuth);
+    
+    // Get the token to check it
+    const token = await apiClient.getAuthToken();
+    console.log('Token available for request:', token ? 'Yes' : 'No');
+    
+    // Log the platform to help with debugging
+    console.log('Current platform:', Platform.OS);
+    
+    const response = await apiClient.userServicePost<User>('/auth/complete-registration', profileData);
+    console.log('Profile completion successful:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('Error completing registration:', error);
+    
+    // Extract specific error message from the response if available
+    if (error.response?.data) {
+      const errorData = error.response.data;
+      
+      // Handle unauthorized errors (usually 401 Unauthorized)
+      if (error.response.status === 401) {
+        throw new Error('Your session has expired. Please log in again.');
+      }
+      
+      // Get the error message, ensuring it's a string
+      let errorMessage: string;
+      
+      // Handle the case where the entire errorData is the error object with a message property
+      if (typeof errorData === 'object' && errorData.message) {
+        if (typeof errorData.message === 'string') {
+          // If message is already a string, use it directly
+          errorMessage = errorData.message;
+        } else if (Array.isArray(errorData.message)) {
+          // If message is an array (NestJS validation errors), join them
+          errorMessage = errorData.message.join(', ');
+        } else if (typeof errorData.message === 'object') {
+          // If message is an object, try to extract a meaningful message
+          errorMessage = 'Profile update failed. Please try again.';
+        } else {
+          // Fallback for other cases
+          errorMessage = 'Profile update failed. Please try again.';
+        }
+      } else {
+        // Fallback if errorData doesn't have a message property
+        errorMessage = 'Profile update failed. Please try again.';
+      }
+      
+      throw new Error(errorMessage);
+    }
+    
+    // If we couldn't extract a specific message, throw a generic one
+    throw new Error('Profile update failed. Please try again.');
+  }
+}
+
+/**
+ * Register a new user (legacy method - use initialRegister and completeRegistration instead)
  * @param userData User registration data
  * @returns The created user
  */
@@ -44,9 +181,41 @@ export async function loginUser(credentials: LoginRequest): Promise<LoginRespons
     await apiClient.setRefreshToken(response.data.refreshToken);
     
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error logging in:', error);
-    throw error;
+    
+    // Extract specific error message from the response if available
+    if (error.response?.data) {
+      const errorData = error.response.data;
+      
+      // Get the error message, ensuring it's a string
+      let errorMessage: string;
+      
+      // Handle the case where the entire errorData is the error object with a message property
+      if (typeof errorData === 'object' && errorData.message) {
+        if (typeof errorData.message === 'string') {
+          // If message is already a string, use it directly
+          errorMessage = errorData.message;
+        } else if (Array.isArray(errorData.message)) {
+          // If message is an array (NestJS validation errors), join them
+          errorMessage = errorData.message.join(', ');
+        } else if (typeof errorData.message === 'object') {
+          // If message is an object, try to extract a meaningful message
+          errorMessage = 'Login failed. Please check your credentials and try again.';
+        } else {
+          // Fallback for other cases
+          errorMessage = 'Login failed. Please check your credentials and try again.';
+        }
+      } else {
+        // Fallback if errorData doesn't have a message property
+        errorMessage = 'Login failed. Please check your credentials and try again.';
+      }
+      
+      throw new Error(errorMessage);
+    }
+    
+    // If we couldn't extract a specific message, throw a generic one
+    throw new Error('Login failed. Please check your credentials and try again.');
   }
 }
 
@@ -123,23 +292,4 @@ export async function submitCircadianQuestionnaire(questionnaireData: CircadianQ
     console.error('Error submitting circadian questionnaire:', error);
     throw error;
   }
-}
-
-/**
- * Initiate Google OAuth login
- * This would typically redirect to Google's OAuth consent screen
- * In a React Native app, this would use a WebView or external browser
- */
-export function initiateGoogleLogin(): void {
-  // This would be implemented using a library like expo-auth-session
-  // For now, we'll just log a message
-  console.log('Google login not implemented yet');
-}
-
-/**
- * Check if the user is authenticated
- * @returns True if the user is authenticated
- */
-export async function isAuthenticated(): Promise<boolean> {
-  return apiClient.isAuthenticated();
 }

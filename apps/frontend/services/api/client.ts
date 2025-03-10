@@ -5,7 +5,7 @@
  */
 
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
-import * as SecureStore from 'expo-secure-store';
+import * as Storage from './storage';
 import config from './config';
 import { ApiError } from './types';
 
@@ -50,13 +50,23 @@ class ApiClient {
         // Skip authentication for login and register endpoints
         const isAuthEndpoint = 
           config.url?.includes('/auth/login') || 
+          config.url?.includes('/auth/register') ||
           config.url?.includes('/user') && config.method === 'post';
+
+        console.log(`Request to ${config.url}, auth required: ${!isAuthEndpoint}`);
 
         if (!isAuthEndpoint) {
           const token = await this.getAuthToken();
+          console.log(`Token for request to ${config.url}: ${token ? 'Available' : 'Not available'}`);
+          
           if (token) {
             config.headers.Authorization = `Bearer ${token}`;
+            console.log(`Added Authorization header for ${config.url}`);
+          } else {
+            console.log(`No token available for ${config.url}`);
           }
+        } else {
+          console.log(`Skipping authentication for ${config.url}`);
         }
         return config;
       },
@@ -106,49 +116,49 @@ class ApiClient {
     );
   }
 
-  // Get the access token from secure storage
+  // Get the access token from storage
   public async getAuthToken(): Promise<string | null> {
     try {
-      return await SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
+      return await Storage.getItemAsync(ACCESS_TOKEN_KEY);
     } catch (error) {
       console.error('Error getting access token:', error);
       return null;
     }
   }
 
-  // Set the access token in secure storage
+  // Set the access token in storage
   public async setAuthToken(token: string): Promise<void> {
     try {
-      await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, token);
+      await Storage.setItemAsync(ACCESS_TOKEN_KEY, token);
     } catch (error) {
       console.error('Error setting access token:', error);
     }
   }
 
-  // Set the refresh token in secure storage
+  // Set the refresh token in storage
   public async setRefreshToken(token: string): Promise<void> {
     try {
-      await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, token);
+      await Storage.setItemAsync(REFRESH_TOKEN_KEY, token);
     } catch (error) {
       console.error('Error setting refresh token:', error);
     }
   }
 
-  // Get the refresh token from secure storage
+  // Get the refresh token from storage
   public async getRefreshToken(): Promise<string | null> {
     try {
-      return await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+      return await Storage.getItemAsync(REFRESH_TOKEN_KEY);
     } catch (error) {
       console.error('Error getting refresh token:', error);
       return null;
     }
   }
 
-  // Clear all tokens from secure storage
+  // Clear all tokens from storage
   public async clearAuthToken(): Promise<void> {
     try {
-      await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
-      await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
+      await Storage.deleteItemAsync(ACCESS_TOKEN_KEY);
+      await Storage.deleteItemAsync(REFRESH_TOKEN_KEY);
     } catch (error) {
       console.error('Error clearing tokens:', error);
     }
