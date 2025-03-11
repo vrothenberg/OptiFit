@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   View, 
@@ -16,6 +16,8 @@ import { useRouter } from 'expo-router';
 
 import Theme from '@/constants/Theme';
 import { useAuth } from '@/services/auth/AuthContext';
+import { getCurrentUser, getLatestCircadianQuestionnaire } from '@/services/userService';
+import { User, CircadianQuestionnaire } from '@/services/api/types';
 
 export default function AccountScreen() {
   const router = useRouter();
@@ -25,13 +27,52 @@ export default function AccountScreen() {
   const [fastingReminderEnabled, setFastingReminderEnabled] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   
-  // Mock user data
-  const user = {
-    name: 'Alex Johnson',
-    email: 'alex.johnson@example.com',
-    joinDate: 'January 15, 2025',
-    circadianScore: 78,
-    streak: 14,
+  // State for user data
+  const [userData, setUserData] = useState<User | null>(null);
+  const [questionnaire, setQuestionnaire] = useState<CircadianQuestionnaire | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Fetch user data on component mount
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        const [user, questionnaireData] = await Promise.all([
+          getCurrentUser(),
+          getLatestCircadianQuestionnaire()
+        ]);
+        setUserData(user);
+        setQuestionnaire(questionnaireData);
+      } catch (err) {
+        console.error('Error fetching user data:', err);
+        setError('Failed to load user data');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchData();
+  }, []);
+  
+  // Calculate circadian score from questionnaire or use default
+  const circadianScore = questionnaire?.chronotype ? 
+    (questionnaire.chronotype === 'early' ? 85 : 
+     questionnaire.chronotype === 'intermediate' ? 75 : 65) : 
+    70;
+  
+  // Format join date from user data
+  const formatJoinDate = (dateString?: string) => {
+    if (!dateString) return 'Recently joined';
+    try {
+      // Simple date formatting without external library
+      const date = new Date(dateString);
+      const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'long', day: 'numeric' };
+      return date.toLocaleDateString('en-US', options);
+    } catch (err) {
+      console.error('Error formatting date:', err);
+      return 'Recently joined';
+    }
   };
   
   // Function to perform the actual logout
@@ -127,193 +168,231 @@ export default function AccountScreen() {
         <Text style={styles.headerTitle}>Account</Text>
       </View>
       
-      <ScrollView style={styles.scrollContainer}>
-        {/* Profile Section */}
-        <View style={styles.profileSection}>
-          <View style={styles.profileImageContainer}>
-            <View style={styles.profileImage}>
-              <Text style={styles.profileInitials}>
-                {user.name.split(' ').map(n => n[0]).join('')}
-              </Text>
-            </View>
-          </View>
-          <Text style={styles.profileName}>{user.name}</Text>
-          <Text style={styles.profileEmail}>{user.email}</Text>
-          <Text style={styles.profileJoinDate}>Member since {user.joinDate}</Text>
-          
-          <View style={styles.statsContainer}>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{user.circadianScore}</Text>
-              <Text style={styles.statLabel}>Circadian Score</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{user.streak}</Text>
-              <Text style={styles.statLabel}>Day Streak</Text>
-            </View>
-          </View>
-          
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Theme.COLORS.PRIMARY} />
+          <Text style={styles.loadingText}>Loading your profile...</Text>
+        </View>
+      ) : error ? (
+        <View style={styles.errorContainer}>
+          <FontAwesome name="exclamation-circle" size={50} color={Theme.COLORS.ERROR} />
+          <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity 
-            style={styles.editProfileButton}
+            style={styles.retryButton}
             onPress={() => {
-              if (Platform.OS === 'web') {
-                window.alert('Edit Profile: This feature is coming soon!');
-              } else {
-                Alert.alert('Edit Profile', 'This feature is coming soon!');
-              }
+              setIsLoading(true);
+              setError(null);
+              // Retry data fetching
+              getCurrentUser()
+                .then(user => setUserData(user))
+                .catch(err => {
+                  console.error('Error fetching user data:', err);
+                  setError('Failed to load user data');
+                })
+                .finally(() => setIsLoading(false));
             }}
           >
-            <Text style={styles.editProfileButtonText}>Edit Profile</Text>
+            <Text style={styles.retryButtonText}>Retry</Text>
           </TouchableOpacity>
         </View>
-        
-        {/* Settings Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Settings</Text>
-          
-          <View style={styles.settingItem}>
-            <View style={styles.settingLabelContainer}>
-              <FontAwesome name="bell" size={20} color={Theme.COLORS.DEFAULT} style={styles.settingIcon} />
-              <Text style={styles.settingLabel}>Notifications</Text>
-            </View>
-            <Switch
-              value={notificationsEnabled}
-              onValueChange={setNotificationsEnabled}
-              trackColor={{ false: '#e0e0e0', true: Theme.COLORS.PRIMARY }}
-              thumbColor="#fff"
-            />
-          </View>
-          
-          <View style={styles.settingItem}>
-            <View style={styles.settingLabelContainer}>
-              <FontAwesome name="moon-o" size={20} color={Theme.COLORS.DEFAULT} style={styles.settingIcon} />
-              <Text style={styles.settingLabel}>Dark Mode</Text>
-            </View>
-            <Switch
-              value={darkModeEnabled}
-              onValueChange={setDarkModeEnabled}
-              trackColor={{ false: '#e0e0e0', true: Theme.COLORS.PRIMARY }}
-              thumbColor="#fff"
-            />
-          </View>
-          
-          <View style={styles.settingItem}>
-            <View style={styles.settingLabelContainer}>
-              <FontAwesome name="clock-o" size={20} color={Theme.COLORS.DEFAULT} style={styles.settingIcon} />
-              <Text style={styles.settingLabel}>Fasting Reminders</Text>
-            </View>
-            <Switch
-              value={fastingReminderEnabled}
-              onValueChange={setFastingReminderEnabled}
-              trackColor={{ false: '#e0e0e0', true: Theme.COLORS.PRIMARY }}
-              thumbColor="#fff"
-            />
-          </View>
-        </View>
-        
-        {/* Support Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Support</Text>
-          
-          <TouchableOpacity 
-            style={styles.menuItem}
-            onPress={() => {
-              if (Platform.OS === 'web') {
-                window.alert('Help Center: This feature is coming soon!');
-              } else {
-                Alert.alert('Help Center', 'This feature is coming soon!');
-              }
-            }}
-          >
-            <View style={styles.menuItemLabelContainer}>
-              <FontAwesome name="question-circle" size={20} color={Theme.COLORS.DEFAULT} style={styles.menuItemIcon} />
-              <Text style={styles.menuItemLabel}>Help Center</Text>
-            </View>
-            <FontAwesome name="chevron-right" size={16} color={Theme.COLORS.MUTED} />
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.menuItem}
-            onPress={() => {
-              if (Platform.OS === 'web') {
-                window.alert('Contact Us: This feature is coming soon!');
-              } else {
-                Alert.alert('Contact Us', 'This feature is coming soon!');
-              }
-            }}
-          >
-            <View style={styles.menuItemLabelContainer}>
-              <FontAwesome name="envelope" size={20} color={Theme.COLORS.DEFAULT} style={styles.menuItemIcon} />
-              <Text style={styles.menuItemLabel}>Contact Us</Text>
-            </View>
-            <FontAwesome name="chevron-right" size={16} color={Theme.COLORS.MUTED} />
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.menuItem}
-            onPress={() => {
-              if (Platform.OS === 'web') {
-                window.alert('Privacy Policy: This feature is coming soon!');
-              } else {
-                Alert.alert('Privacy Policy', 'This feature is coming soon!');
-              }
-            }}
-          >
-            <View style={styles.menuItemLabelContainer}>
-              <FontAwesome name="lock" size={20} color={Theme.COLORS.DEFAULT} style={styles.menuItemIcon} />
-              <Text style={styles.menuItemLabel}>Privacy Policy</Text>
-            </View>
-            <FontAwesome name="chevron-right" size={16} color={Theme.COLORS.MUTED} />
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.menuItem}
-            onPress={() => {
-              if (Platform.OS === 'web') {
-                window.alert('Terms of Service: This feature is coming soon!');
-              } else {
-                Alert.alert('Terms of Service', 'This feature is coming soon!');
-              }
-            }}
-          >
-            <View style={styles.menuItemLabelContainer}>
-              <FontAwesome name="file-text" size={20} color={Theme.COLORS.DEFAULT} style={styles.menuItemIcon} />
-              <Text style={styles.menuItemLabel}>Terms of Service</Text>
-            </View>
-            <FontAwesome name="chevron-right" size={16} color={Theme.COLORS.MUTED} />
-          </TouchableOpacity>
-        </View>
-        
-        {/* Account Actions */}
-        <View style={styles.section}>
-          <TouchableOpacity 
-            style={[styles.logoutButton, isLoggingOut && styles.disabledButton]}
-            onPress={handleLogout}
-            disabled={isLoggingOut}
-          >
-            {isLoggingOut ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color={Theme.COLORS.WHITE} />
-                <Text style={styles.logoutButtonText}>Logging out...</Text>
+      ) : (
+        <ScrollView style={styles.scrollContainer}>
+          {/* Profile Section */}
+          <View style={styles.profileSection}>
+            <View style={styles.profileImageContainer}>
+              <View style={styles.profileImage}>
+                <Text style={styles.profileInitials}>
+                  {userData ? 
+                    `${userData.firstName?.charAt(0) || ''}${userData.lastName?.charAt(0) || ''}` : 
+                    'U'}
+                </Text>
               </View>
-            ) : (
-              <Text style={styles.logoutButtonText}>Logout</Text>
-            )}
-          </TouchableOpacity>
+            </View>
+            <Text style={styles.profileName}>
+              {userData ? `${userData.firstName} ${userData.lastName}` : 'User'}
+            </Text>
+            <Text style={styles.profileEmail}>{userData?.email || 'No email'}</Text>
+            <Text style={styles.profileJoinDate}>
+              Member since {formatJoinDate(userData?.createdAt)}
+            </Text>
+            
+            <View style={styles.statsContainer}>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{circadianScore}</Text>
+                <Text style={styles.statLabel}>Circadian Score</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>
+                  {/* Placeholder for streak - not yet implemented in backend */}
+                  {Math.floor(Math.random() * 20) + 1}
+                </Text>
+                <Text style={styles.statLabel}>Day Streak</Text>
+              </View>
+            </View>
+            
+            <TouchableOpacity 
+              style={styles.editProfileButton}
+              onPress={() => {
+                if (Platform.OS === 'web') {
+                  window.alert('Edit Profile: This feature is coming soon!');
+                } else {
+                  Alert.alert('Edit Profile', 'This feature is coming soon!');
+                }
+              }}
+            >
+              <Text style={styles.editProfileButtonText}>Edit Profile</Text>
+            </TouchableOpacity>
+          </View>
           
-          <TouchableOpacity 
-            style={styles.deleteAccountButton}
-            onPress={handleDeleteAccount}
-          >
-            <Text style={styles.deleteAccountButtonText}>Delete Account</Text>
-          </TouchableOpacity>
-        </View>
-        
-        {/* App Version */}
-        <View style={styles.versionContainer}>
-          <Text style={styles.versionText}>OptiFit v1.0.0</Text>
-        </View>
-      </ScrollView>
+          {/* Settings Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Settings</Text>
+            
+            <View style={styles.settingItem}>
+              <View style={styles.settingLabelContainer}>
+                <FontAwesome name="bell" size={20} color={Theme.COLORS.DEFAULT} style={styles.settingIcon} />
+                <Text style={styles.settingLabel}>Notifications</Text>
+              </View>
+              <Switch
+                value={notificationsEnabled}
+                onValueChange={setNotificationsEnabled}
+                trackColor={{ false: '#e0e0e0', true: Theme.COLORS.PRIMARY }}
+                thumbColor="#fff"
+              />
+            </View>
+            
+            <View style={styles.settingItem}>
+              <View style={styles.settingLabelContainer}>
+                <FontAwesome name="moon-o" size={20} color={Theme.COLORS.DEFAULT} style={styles.settingIcon} />
+                <Text style={styles.settingLabel}>Dark Mode</Text>
+              </View>
+              <Switch
+                value={darkModeEnabled}
+                onValueChange={setDarkModeEnabled}
+                trackColor={{ false: '#e0e0e0', true: Theme.COLORS.PRIMARY }}
+                thumbColor="#fff"
+              />
+            </View>
+            
+            <View style={styles.settingItem}>
+              <View style={styles.settingLabelContainer}>
+                <FontAwesome name="clock-o" size={20} color={Theme.COLORS.DEFAULT} style={styles.settingIcon} />
+                <Text style={styles.settingLabel}>Fasting Reminders</Text>
+              </View>
+              <Switch
+                value={fastingReminderEnabled}
+                onValueChange={setFastingReminderEnabled}
+                trackColor={{ false: '#e0e0e0', true: Theme.COLORS.PRIMARY }}
+                thumbColor="#fff"
+              />
+            </View>
+          </View>
+          
+          {/* Support Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Support</Text>
+            
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => {
+                if (Platform.OS === 'web') {
+                  window.alert('Help Center: This feature is coming soon!');
+                } else {
+                  Alert.alert('Help Center', 'This feature is coming soon!');
+                }
+              }}
+            >
+              <View style={styles.menuItemLabelContainer}>
+                <FontAwesome name="question-circle" size={20} color={Theme.COLORS.DEFAULT} style={styles.menuItemIcon} />
+                <Text style={styles.menuItemLabel}>Help Center</Text>
+              </View>
+              <FontAwesome name="chevron-right" size={16} color={Theme.COLORS.MUTED} />
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => {
+                if (Platform.OS === 'web') {
+                  window.alert('Contact Us: This feature is coming soon!');
+                } else {
+                  Alert.alert('Contact Us', 'This feature is coming soon!');
+                }
+              }}
+            >
+              <View style={styles.menuItemLabelContainer}>
+                <FontAwesome name="envelope" size={20} color={Theme.COLORS.DEFAULT} style={styles.menuItemIcon} />
+                <Text style={styles.menuItemLabel}>Contact Us</Text>
+              </View>
+              <FontAwesome name="chevron-right" size={16} color={Theme.COLORS.MUTED} />
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => {
+                if (Platform.OS === 'web') {
+                  window.alert('Privacy Policy: This feature is coming soon!');
+                } else {
+                  Alert.alert('Privacy Policy', 'This feature is coming soon!');
+                }
+              }}
+            >
+              <View style={styles.menuItemLabelContainer}>
+                <FontAwesome name="lock" size={20} color={Theme.COLORS.DEFAULT} style={styles.menuItemIcon} />
+                <Text style={styles.menuItemLabel}>Privacy Policy</Text>
+              </View>
+              <FontAwesome name="chevron-right" size={16} color={Theme.COLORS.MUTED} />
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => {
+                if (Platform.OS === 'web') {
+                  window.alert('Terms of Service: This feature is coming soon!');
+                } else {
+                  Alert.alert('Terms of Service', 'This feature is coming soon!');
+                }
+              }}
+            >
+              <View style={styles.menuItemLabelContainer}>
+                <FontAwesome name="file-text" size={20} color={Theme.COLORS.DEFAULT} style={styles.menuItemIcon} />
+                <Text style={styles.menuItemLabel}>Terms of Service</Text>
+              </View>
+              <FontAwesome name="chevron-right" size={16} color={Theme.COLORS.MUTED} />
+            </TouchableOpacity>
+          </View>
+          
+          {/* Account Actions */}
+          <View style={styles.section}>
+            <TouchableOpacity 
+              style={[styles.logoutButton, isLoggingOut && styles.disabledButton]}
+              onPress={handleLogout}
+              disabled={isLoggingOut}
+            >
+              {isLoggingOut ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color={Theme.COLORS.WHITE} />
+                  <Text style={styles.logoutButtonText}>Logging out...</Text>
+                </View>
+              ) : (
+                <Text style={styles.logoutButtonText}>Logout</Text>
+              )}
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.deleteAccountButton}
+              onPress={handleDeleteAccount}
+            >
+              <Text style={styles.deleteAccountButtonText}>Delete Account</Text>
+            </TouchableOpacity>
+          </View>
+          
+          {/* App Version */}
+          <View style={styles.versionContainer}>
+            <Text style={styles.versionText}>OptiFit v1.0.0</Text>
+          </View>
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -335,6 +414,43 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: Theme.COLORS.WHITE,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 15,
+    fontSize: 16,
+    color: Theme.COLORS.DEFAULT,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    padding: 20,
+  },
+  errorText: {
+    marginTop: 15,
+    marginBottom: 20,
+    fontSize: 16,
+    color: Theme.COLORS.DEFAULT,
+    textAlign: 'center',
+  },
+  retryButton: {
+    backgroundColor: Theme.COLORS.PRIMARY,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 5,
+  },
+  retryButtonText: {
+    color: Theme.COLORS.WHITE,
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   scrollContainer: {
     flex: 1,
@@ -477,11 +593,6 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     backgroundColor: Theme.COLORS.MUTED,
-  },
-  loadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   logoutButtonText: {
     color: Theme.COLORS.WHITE,
