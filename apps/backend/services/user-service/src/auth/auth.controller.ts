@@ -39,13 +39,25 @@ export class AuthController {
     return this.authService.completeRegistration(user.id, completeRegistrationDto);
   }
 
+  @Public()
   @UseGuards(LocalAuthGuard)
   @Post('login')
   @ApiOperation({ summary: 'User login' })
   @ApiResponse({ status: 200, description: 'Login successful' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async login(@Body() loginDto: LoginDto, @CurrentUser() user: User): Promise<Tokens> {
-    return this.authService.login(user);
+    console.log(`[AuthController] Login attempt for email: ${loginDto.email}`);
+    console.log(`[AuthController] User authenticated by LocalAuthGuard: ${user ? 'Yes' : 'No'}`);
+    
+    if (user) {
+      console.log(`[AuthController] Authenticated user details: ID=${user.id}, Email=${user.email}`);
+      const tokens = await this.authService.login(user);
+      console.log(`[AuthController] Login successful, tokens generated`);
+      return tokens;
+    } else {
+      console.log(`[AuthController] Authentication failed, no user object provided by guard`);
+      throw new UnauthorizedException('Invalid credentials');
+    }
   }
 
   @Post('refresh')
@@ -66,5 +78,31 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Profile retrieved successfully' })
   getProfile(@CurrentUser() user: User) {
     return user;
+  }
+
+  // Debug endpoint - remove in production
+  @Public()
+  @Post('debug/check-password')
+  @ApiOperation({ summary: 'Debug endpoint to check if a password is valid for a user' })
+  async checkPassword(@Body() loginDto: LoginDto) {
+    console.log(`[DEBUG] Checking password for email: ${loginDto.email}`);
+    
+    try {
+      // Find user by email
+      const user = await this.authService.validateUser(loginDto.email, loginDto.password);
+      
+      return {
+        success: !!user,
+        message: user ? 'Password is valid' : 'Password is invalid',
+        userId: user?.id
+      };
+    } catch (error) {
+      console.error('[DEBUG] Error checking password:', error);
+      return {
+        success: false,
+        message: 'Error checking password',
+        error: error.message
+      };
+    }
   }
 }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   View, 
@@ -9,7 +9,9 @@ import {
   Dimensions, 
   TextInput,
   Platform,
-  KeyboardAvoidingView
+  KeyboardAvoidingView,
+  Alert,
+  ActivityIndicator
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link, Stack, useRouter } from 'expo-router';
@@ -17,6 +19,10 @@ import { StatusBar } from 'expo-status-bar';
 import { FontAwesome } from '@expo/vector-icons';
 
 import Theme from '@/constants/Theme';
+import TimePicker from '@/components/TimePicker';
+import * as Storage from '@/services/api/storage';
+import { submitCircadianQuestionnaire } from '@/services/userService';
+import { CircadianQuestionnaire } from '@/services/api/types';
 
 const { width } = Dimensions.get('window');
 
@@ -69,10 +75,15 @@ const questions: QuestionData[] = [
   },
 ];
 
+// Storage key for questionnaire progress
+const QUESTIONNAIRE_PROGRESS_KEY = 'optifit_questionnaire_progress';
+
 export default function OnboardingScreen() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
   const [fadeAnim] = useState(new Animated.Value(1));
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   
   // Form state for existing questions
   const [sleepTime, setSleepTime] = useState('10:30 PM');
@@ -89,12 +100,136 @@ export default function OnboardingScreen() {
   const [dietType, setDietType] = useState('Omnivore');
   const [supplementUse, setSupplementUse] = useState(false);
   
+  // Load saved progress on component mount
+  useEffect(() => {
+    const loadSavedProgress = async () => {
+      try {
+        const savedProgress = await Storage.getItemAsync(QUESTIONNAIRE_PROGRESS_KEY);
+        if (savedProgress) {
+          const parsedProgress = JSON.parse(savedProgress);
+          
+          // Restore current step
+          setCurrentStep(parsedProgress.currentStep || 0);
+          
+          // Restore all form data
+          const savedData = parsedProgress.data || {};
+          setSleepTime(savedData.sleepTime || '10:30 PM');
+          setWakeTime(savedData.wakeTime || '6:30 AM');
+          setSleepQuality(savedData.sleepQuality || 3);
+          setFirstMeal(savedData.firstMeal || '7:30 AM');
+          setLastMeal(savedData.lastMeal || '7:00 PM');
+          setFastingPractice(savedData.fastingPractice || false);
+          setExerciseDays(savedData.exerciseDays || 3);
+          setExerciseTime(savedData.exerciseTime || 'Morning');
+          setGoals(savedData.goals || ['Improve sleep', 'Optimize meal timing']);
+          setDietType(savedData.dietType || 'Omnivore');
+          setSupplementUse(savedData.supplementUse || false);
+          
+          console.log('Questionnaire progress loaded from storage');
+        }
+      } catch (error) {
+        console.error('Error loading saved questionnaire progress:', error);
+      }
+    };
+    
+    loadSavedProgress();
+  }, []);
+  
+  // Save progress to local storage
+  const saveProgress = async () => {
+    try {
+      const questionnaireProgress = {
+        currentStep,
+        data: {
+          sleepTime,
+          wakeTime,
+          sleepQuality,
+          firstMeal,
+          lastMeal,
+          fastingPractice,
+          exerciseDays,
+          exerciseTime,
+          dietType,
+          supplementUse,
+          goals,
+        }
+      };
+      
+      await Storage.setItemAsync(QUESTIONNAIRE_PROGRESS_KEY, JSON.stringify(questionnaireProgress));
+      console.log('Questionnaire progress saved to storage');
+    } catch (error) {
+      console.error('Error saving questionnaire progress:', error);
+    }
+  };
+  
   // Calculate progress percentage
   const progress = ((currentStep) / (questions.length - 1)) * 100;
   
+  // Determine chronotype based on sleep and wake times
+  const determineChronotype = (sleepTime: string, wakeTime: string): 'early' | 'intermediate' | 'late' => {
+    // Simple logic to determine chronotype
+    if (sleepTime.includes('9:') && sleepTime.includes('PM') && 
+        (wakeTime.includes('5:') || wakeTime.includes('6:')) && wakeTime.includes('AM')) {
+      return 'early';
+    } else if (sleepTime.includes('12:') || sleepTime.includes('1:') || 
+               (sleepTime.includes('2:') && sleepTime.includes('AM'))) {
+      return 'late';
+    } else {
+      return 'intermediate';
+    }
+  };
+  
+  // Submit questionnaire data to API
+  const handleSubmitQuestionnaire = async () => {
+    setIsSubmitting(true);
+    setSubmitError(null);
+    
+    try {
+      // Prepare the data for submission
+      const circadianData: CircadianQuestionnaire = {
+        sleepTime,
+        wakeTime,
+        chronotype: determineChronotype(sleepTime, wakeTime),
+        energyLevels: [sleepQuality],
+        mealTimes: [firstMeal, lastMeal],
+        fastingPractice,
+        exerciseFrequency: exerciseDays,
+        exerciseTime,
+        dietType,
+        supplementUse,
+        goals
+      };
+      
+      // Submit to API
+      const updatedUser = await submitCircadianQuestionnaire(circadianData);
+      console.log('Questionnaire submitted successfully:', updatedUser);
+      
+      // Clear local storage after successful submission
+      await Storage.deleteItemAsync(QUESTIONNAIRE_PROGRESS_KEY);
+      
+      // Navigate to the main app
+      router.push('/(tabs)');
+    } catch (error: any) {
+      console.error('Error submitting questionnaire:', error);
+      setSubmitError('Failed to submit questionnaire. Please try again.');
+      
+      // Show error message
+      Alert.alert(
+        'Submission Error',
+        'There was a problem submitting your questionnaire. Please try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   // Handle next button press
   const handleNext = () => {
     if (currentStep < questions.length - 1) {
+      // Save progress before moving to next step
+      saveProgress();
+      
       // Fade out animation
       Animated.timing(fadeAnim, {
         toValue: 0,
@@ -110,14 +245,17 @@ export default function OnboardingScreen() {
         }).start();
       });
     } else {
-      // Navigate to the main app
-      router.push('/(tabs)');
+      // Handle final submission
+      handleSubmitQuestionnaire();
     }
   };
   
   // Handle back button press
   const handleBack = () => {
     if (currentStep > 0) {
+      // Save progress before moving to previous step
+      saveProgress();
+      
       // Fade out animation
       Animated.timing(fadeAnim, {
         toValue: 0,
@@ -154,22 +292,18 @@ export default function OnboardingScreen() {
         return (
           <View style={styles.questionContainer}>
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>What time do you typically go to bed?</Text>
-              <TextInput
-                style={styles.textInput}
+              <TimePicker
+                label="What time do you typically go to bed?"
                 value={sleepTime}
-                onChangeText={setSleepTime}
-                placeholder="e.g., 10:30 PM"
+                onChange={setSleepTime}
               />
             </View>
             
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>What time do you typically wake up?</Text>
-              <TextInput
-                style={styles.textInput}
+              <TimePicker
+                label="What time do you typically wake up?"
                 value={wakeTime}
-                onChangeText={setWakeTime}
-                placeholder="e.g., 6:30 AM"
+                onChange={setWakeTime}
               />
             </View>
             
@@ -208,22 +342,18 @@ export default function OnboardingScreen() {
         return (
           <View style={styles.questionContainer}>
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>When do you typically eat your first meal?</Text>
-              <TextInput
-                style={styles.textInput}
+              <TimePicker
+                label="When do you typically eat your first meal?"
                 value={firstMeal}
-                onChangeText={setFirstMeal}
-                placeholder="e.g., 7:30 AM"
+                onChange={setFirstMeal}
               />
             </View>
             
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>When do you typically eat your last meal?</Text>
-              <TextInput
-                style={styles.textInput}
+              <TimePicker
+                label="When do you typically eat your last meal?"
                 value={lastMeal}
-                onChangeText={setLastMeal}
-                placeholder="e.g., 7:00 PM"
+                onChange={setLastMeal}
               />
             </View>
             
@@ -566,10 +696,18 @@ export default function OnboardingScreen() {
             </TouchableOpacity>
           )}
           
-          <TouchableOpacity style={styles.button} onPress={handleNext}>
-            <Text style={styles.buttonText}>
-              {currentStep < questions.length - 1 ? 'Next' : 'Finish'}
-            </Text>
+          <TouchableOpacity 
+            style={styles.button} 
+            onPress={handleNext}
+            disabled={isSubmitting}
+          >
+            {isSubmitting && currentStep === questions.length - 1 ? (
+              <ActivityIndicator color={Theme.COLORS.WHITE} />
+            ) : (
+              <Text style={styles.buttonText}>
+                {currentStep < questions.length - 1 ? 'Next' : 'Finish'}
+              </Text>
+            )}
           </TouchableOpacity>
         </View>
       </ScrollView>

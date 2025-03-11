@@ -47,11 +47,11 @@ class ApiClient {
   private setupAuthInterceptors(client: AxiosInstance): void {
     client.interceptors.request.use(
       async (config) => {
-        // Skip authentication for login and register endpoints
+        // Skip authentication for login, register, and legacy user creation endpoints
         const isAuthEndpoint = 
           config.url?.includes('/auth/login') || 
           config.url?.includes('/auth/register') ||
-          config.url?.includes('/user') && config.method === 'post';
+          (config.url === '/user' && config.method === 'post'); // Exact match for legacy user creation
 
         console.log(`Request to ${config.url}, auth required: ${!isAuthEndpoint}`);
 
@@ -77,40 +77,74 @@ class ApiClient {
     client.interceptors.response.use(
       (response) => response,
       async (error: AxiosError<ApiError>) => {
-        // Handle 401 Unauthorized errors
-        if (error.response?.status === 401) {
+        // If config is missing, we can't do much with this error
+        if (!error.config) {
+          return Promise.reject(error);
+        }
+        
+        // Skip token refresh for auth endpoints
+        const isAuthEndpoint = 
+          error.config.url?.includes('/auth/login') || 
+          error.config.url?.includes('/auth/register') ||
+          (error.config.url === '/user' && error.config.method === 'post');
+        
+        // Add retry count property if it doesn't exist
+        // @ts-ignore - Adding custom property to config
+        const retryCount = error.config._retryCount || 0;
+        
+        // Handle 401 Unauthorized errors (but not for auth endpoints)
+        if (error.response?.status === 401 && !isAuthEndpoint) {
+          // Check if we've already tried to refresh too many times
+          
+          if (retryCount >= 2) {
+            console.error('Maximum token refresh attempts reached. Logging out.');
+            await this.clearAuthToken();
+            return Promise.reject(new Error('Your session has expired. Please log in again.'));
+          }
+          
           // Try to refresh the token
           const refreshToken = await this.getRefreshToken();
           
           if (refreshToken) {
             try {
+              console.log('Attempting to refresh access token...');
               // Try to get a new access token
               const response = await this.refreshAccessToken(refreshToken);
               
               if (response) {
+                console.log('Token refresh successful, retrying original request');
                 // Retry the original request with the new token
                 const originalRequest = error.config;
                 if (originalRequest && originalRequest.headers) {
                   originalRequest.headers.Authorization = `Bearer ${response.accessToken}`;
+                  // Increment retry count
+                  // @ts-ignore - Accessing custom property
+                  originalRequest._retryCount = retryCount + 1;
                   return this.userServiceClient(originalRequest);
                 }
               }
-            } catch (refreshError) {
-              console.error('Error refreshing token:', refreshError);
+            } catch (refreshError: any) {
+              const errorMessage = refreshError?.response?.data?.message || 'Unknown error refreshing token';
+              console.error(`Error refreshing token: ${errorMessage}`);
+              
               // If refresh fails, clear tokens and reject
               await this.clearAuthToken();
-              return Promise.reject(error);
+              return Promise.reject(new Error('Your session has expired. Please log in again.'));
             }
           } else {
+            console.log('No refresh token available');
             // No refresh token, clear tokens
             await this.clearAuthToken();
           }
           
           // Redirect to login (this would be handled by the app's navigation)
-          // For now, we'll just reject the promise
-          return Promise.reject(error);
+          // For now, we'll just reject the promise with a more user-friendly message
+          return Promise.reject(new Error('Your session has expired. Please log in again.'));
         }
         
+        // For other errors, pass through with better error messages
+        const errorMessage = error.response?.data?.message || error.message || 'An unknown error occurred';
+        console.error(`API Error: ${errorMessage}`);
         return Promise.reject(error);
       }
     );

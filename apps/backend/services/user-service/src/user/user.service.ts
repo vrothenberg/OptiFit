@@ -3,10 +3,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './entity/user.entity';
 import { UserProfile } from './entity/user-profile.entity';
+import { CircadianQuestionnaire } from './entity/circadian-questionnaire.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CreateUserProfileDto } from './dto/create-user-profile.dto';
 import { UpdateUserProfileDto } from './dto/update-user-profile.dto';
+import { CircadianQuestionnaireDto } from './dto/circadian-questionnaire.dto';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -16,13 +18,22 @@ export class UserService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(UserProfile)
     private readonly profileRepository: Repository<UserProfile>,
+    @InjectRepository(CircadianQuestionnaire)
+    private readonly circadianQuestionnaireRepository: Repository<CircadianQuestionnaire>,
   ) {}
 
   private readonly logger = new Logger(UserService.name);
 
   // Create a new user and automatically create an associated profile.
+  // @deprecated This method uses a legacy endpoint. Please use the two-step registration process with
+  // AuthService.register() and AuthService.completeRegistration() instead.
   async create(createUserDto: CreateUserDto): Promise<User> {
     try {
+      this.logger.warn(
+        'DEPRECATED: UserService.create() is deprecated and will be removed in a future version. ' +
+        'Please use the two-step registration process with AuthService.register() and AuthService.completeRegistration() instead.'
+      );
+      
       // Check if user with this email already exists
       const existingUser = await this.userRepository.findOne({ 
         where: { email: createUserDto.email } 
@@ -36,8 +47,11 @@ export class UserService {
       // Extract password separately so we can hash it
       const { password, profile: profileData, ...userData } = createUserDto;
       
+      this.logger.debug(`Password to hash: length=${password.length}, first2chars=${password.substring(0, 2)}`);
+      
       // Hash the password
       const hashedPassword = await bcrypt.hash(password, 10);
+      this.logger.debug(`Password hashed with salt rounds: 10, hash length=${hashedPassword.length}`);
       
       // Create the user entity with hashed password
       const newUser = this.userRepository.create({ 
@@ -45,9 +59,9 @@ export class UserService {
         hashedPassword 
       });
       
-      this.logger.debug(`Creating new user with email: ${createUserDto.email}`);
+      this.logger.debug(`Creating new user with email: ${createUserDto.email}, hashedPassword length: ${newUser.hashedPassword.length}`);
       const savedUser = await this.userRepository.save(newUser);
-      this.logger.debug(`User created with ID: ${savedUser.id}`);
+      this.logger.debug(`User created with ID: ${savedUser.id}, hashedPassword in DB: ${savedUser.hashedPassword.substring(0, 10)}...`);
     
       // Create associated profile
       try {
@@ -140,5 +154,44 @@ export class UserService {
     return await this.profileRepository.save(profile);
   }
 
+  // CIRCADIAN QUESTIONNAIRE METHODS
 
+  async submitCircadianQuestionnaire(userId: number, questionnaireDto: CircadianQuestionnaireDto): Promise<CircadianQuestionnaire> {
+    // Verify user exists
+    await this.findOne(userId);
+    
+    // Create a new questionnaire entity
+    const questionnaire = this.circadianQuestionnaireRepository.create({
+      userId,
+      ...questionnaireDto
+    });
+    
+    this.logger.debug(`Submitting circadian questionnaire for user ID: ${userId}`);
+    
+    // Save the questionnaire
+    return await this.circadianQuestionnaireRepository.save(questionnaire);
+  }
+
+  async getCircadianQuestionnaires(userId: number): Promise<CircadianQuestionnaire[]> {
+    // Verify user exists
+    await this.findOne(userId);
+    
+    return await this.circadianQuestionnaireRepository.find({
+      where: { userId },
+      order: { createdAt: 'DESC' }
+    });
+  }
+
+  async getLatestCircadianQuestionnaire(userId: number): Promise<CircadianQuestionnaire | null> {
+    // Verify user exists
+    await this.findOne(userId);
+    
+    const questionnaires = await this.circadianQuestionnaireRepository.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+      take: 1
+    });
+    
+    return questionnaires.length > 0 ? questionnaires[0] : null;
+  }
 }

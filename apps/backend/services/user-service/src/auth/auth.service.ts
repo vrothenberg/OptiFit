@@ -25,17 +25,21 @@ export class AuthService {
 
   async register(initialRegisterDto: InitialRegisterDto): Promise<Tokens> {
     try {
+      console.log(`[AuthService] Registering new user with email: ${initialRegisterDto.email}`);
+      
       // Check if user with this email already exists
       try {
         // Use the userService to find a user by email
         await this.userService.findByEmail(initialRegisterDto.email);
         // If we get here, a user with this email exists
+        console.log(`[AuthService] User with email ${initialRegisterDto.email} already exists`);
         throw new ConflictException('User with this email already exists');
       } catch (error) {
         // If it's a NotFoundException, that's good - it means the user doesn't exist
         if (!(error instanceof NotFoundException)) {
           throw error;
         }
+        console.log(`[AuthService] Email ${initialRegisterDto.email} is available for registration`);
       }
 
       // Create minimal user with email and password
@@ -47,8 +51,16 @@ export class AuthService {
         lastName: 'Registration',
       };
 
+      console.log(`[AuthService] Creating minimal user with data:`, {
+        email: initialRegisterDto.email,
+        firstName: minimalUserData.firstName,
+        lastName: minimalUserData.lastName,
+        passwordLength: initialRegisterDto.password.length
+      });
+
       // Create the user
       const user = await this.userService.create(minimalUserData);
+      console.log(`[AuthService] User created with ID: ${user.id}, hashedPassword length: ${user.hashedPassword?.length || 0}`);
 
       // Log registration activity
       const activityLog = this.activityLogRepository.create({
@@ -128,22 +140,35 @@ export class AuthService {
 
   async validateUser(email: string, password: string): Promise<any> {
     try {
+      console.log(`[AuthService] Validating user with email: ${email}`);
+      
       // Find user by email
       const user = await this.userService.findByEmail(email);
+      console.log(`[AuthService] User found for email ${email}: ${user ? 'Yes' : 'No'}`);
+      
       if (!user) {
+        console.log('[AuthService] No user found with this email');
         return null;
       }
 
+      console.log(`[AuthService] User details: ID=${user.id}, Email=${user.email}, HashedPassword length=${user.hashedPassword?.length || 0}`);
+      
       // Verify password
+      console.log('[AuthService] Comparing password with hash...');
       const isPasswordValid = await bcrypt.compare(password, user.hashedPassword);
+      console.log(`[AuthService] Password valid: ${isPasswordValid}`);
+      
       if (!isPasswordValid) {
+        console.log('[AuthService] Invalid password');
         return null;
       }
 
       // Return user without password
       const { hashedPassword, ...result } = user;
+      console.log('[AuthService] User validated successfully');
       return result;
     } catch (error) {
+      console.error('[AuthService] Error in validateUser:', error);
       return null;
     }
   }

@@ -5,10 +5,13 @@ import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateUserProfileDto } from './dto/update-user-profile.dto';
+import { CircadianQuestionnaireDto } from './dto/circadian-questionnaire.dto';
 import { User } from './entity/user.entity';
 import { UserProfile } from './entity/user-profile.entity';
+import { CircadianQuestionnaire } from './entity/circadian-questionnaire.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { Public } from '../auth/decorators/public.decorator'; // Add this import
+import { Public } from '../auth/decorators/public.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @UseGuards(JwtAuthGuard)
 @ApiTags('User')
@@ -19,9 +22,13 @@ export class UserController {
   @Public()
   @Post()
   @UsePipes(new CustomValidationPipe())
-  @ApiOperation({ summary: 'Create a new user' })
+  @ApiOperation({ 
+    summary: 'Create a new user (DEPRECATED)', 
+    description: 'This endpoint is deprecated. Please use the two-step registration process with /auth/register and /auth/complete-registration instead.'
+  })
   @ApiResponse({ status: 201, description: 'The user has been successfully created.', type: User })
   @ApiResponse({ status: 400, description: 'Validation failed or Bad Request' })
+  @ApiResponse({ status: 409, description: 'User with this email already exists' })
   async create(@Body() createUserDto: CreateUserDto): Promise<User> {
     try {
       const logger = new Logger('UserController');
@@ -78,5 +85,32 @@ export class UserController {
   @ApiResponse({ status: 200, description: 'The user profile has been updated.', type: UserProfile })
   async updateProfile(@Param('userId', ParseIntPipe) userId: number, @Body() updateUserProfileDto: UpdateUserProfileDto): Promise<UserProfile> {
     return await this.userService.updateUserProfile(userId, updateUserProfileDto);
+  }
+
+  // CIRCADIAN QUESTIONNAIRE ENDPOINTS
+
+  @Post('circadian-questionnaire')
+  @UsePipes(new CustomValidationPipe())
+  @ApiOperation({ summary: 'Submit circadian questionnaire' })
+  @ApiResponse({ status: 201, description: 'Questionnaire submitted successfully', type: CircadianQuestionnaire })
+  async submitCircadianQuestionnaire(
+    @CurrentUser() user: User,
+    @Body() questionnaireDto: CircadianQuestionnaireDto
+  ): Promise<CircadianQuestionnaire> {
+    return await this.userService.submitCircadianQuestionnaire(user.id, questionnaireDto);
+  }
+
+  @Get('circadian-questionnaire')
+  @ApiOperation({ summary: 'Get all circadian questionnaires for the current user' })
+  @ApiResponse({ status: 200, description: 'Returns an array of questionnaires', type: [CircadianQuestionnaire] })
+  async getCircadianQuestionnaires(@CurrentUser() user: User): Promise<CircadianQuestionnaire[]> {
+    return await this.userService.getCircadianQuestionnaires(user.id);
+  }
+
+  @Get('circadian-questionnaire/latest')
+  @ApiOperation({ summary: 'Get the latest circadian questionnaire for the current user' })
+  @ApiResponse({ status: 200, description: 'Returns the latest questionnaire', type: CircadianQuestionnaire })
+  async getLatestCircadianQuestionnaire(@CurrentUser() user: User): Promise<CircadianQuestionnaire | null> {
+    return await this.userService.getLatestCircadianQuestionnaire(user.id);
   }
 }

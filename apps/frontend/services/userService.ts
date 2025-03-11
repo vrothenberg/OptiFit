@@ -153,11 +153,17 @@ export async function completeRegistration(profileData: any): Promise<User> {
 }
 
 /**
- * Register a new user (legacy method - use initialRegister and completeRegistration instead)
+ * Register a new user (DEPRECATED - use initialRegister and completeRegistration instead)
+ * @deprecated This method uses a legacy endpoint. Please use the two-step registration process with
+ * initialRegister() and completeRegistration() instead.
  * @param userData User registration data
  * @returns The created user
  */
 export async function registerUser(userData: RegisterRequest): Promise<User> {
+  console.warn(
+    'DEPRECATED: registerUser() is deprecated and will be removed in a future version. ' +
+    'Please use initialRegister() and completeRegistration() instead.'
+  );
   try {
     const response = await apiClient.userServicePost<User>('/user', userData);
     return response.data;
@@ -174,47 +180,73 @@ export async function registerUser(userData: RegisterRequest): Promise<User> {
  */
 export async function loginUser(credentials: LoginRequest): Promise<LoginResponse> {
   try {
+    console.log(`[userService] Attempting to login user with email: ${credentials.email}`);
+    console.log(`[userService] Password provided: ${credentials.password ? 'Yes' : 'No'}, Length: ${credentials.password?.length || 0}`);
+    
     const response = await apiClient.userServicePost<LoginResponse>('/auth/login', credentials);
+    console.log(`[userService] Login API call successful, status: ${response.status}`);
+    console.log(`[userService] Tokens received:`, {
+      accessToken: response.data.accessToken ? `${response.data.accessToken.substring(0, 10)}...` : 'None',
+      refreshToken: response.data.refreshToken ? `${response.data.refreshToken.substring(0, 10)}...` : 'None'
+    });
     
     // Store both tokens
     await apiClient.setAuthToken(response.data.accessToken);
+    console.log(`[userService] Access token stored`);
+    
     await apiClient.setRefreshToken(response.data.refreshToken);
+    console.log(`[userService] Refresh token stored`);
+    
+    // Verify token was stored
+    const isAuth = await apiClient.isAuthenticated();
+    console.log(`[userService] Authentication status after login: ${isAuth}`);
     
     return response.data;
   } catch (error: any) {
     console.error('Error logging in:', error);
+    console.log(`[userService] Login error status: ${error.response?.status}`);
+    console.log(`[userService] Login error data:`, error.response?.data);
     
     // Extract specific error message from the response if available
     if (error.response?.data) {
       const errorData = error.response.data;
+      console.log(`[userService] Error data type: ${typeof errorData}`);
       
       // Get the error message, ensuring it's a string
       let errorMessage: string;
       
       // Handle the case where the entire errorData is the error object with a message property
       if (typeof errorData === 'object' && errorData.message) {
+        console.log(`[userService] Error message type: ${typeof errorData.message}`);
+        
         if (typeof errorData.message === 'string') {
           // If message is already a string, use it directly
           errorMessage = errorData.message;
+          console.log(`[userService] Error message (string): ${errorMessage}`);
         } else if (Array.isArray(errorData.message)) {
           // If message is an array (NestJS validation errors), join them
           errorMessage = errorData.message.join(', ');
+          console.log(`[userService] Error message (array): ${errorMessage}`);
         } else if (typeof errorData.message === 'object') {
           // If message is an object, try to extract a meaningful message
           errorMessage = 'Login failed. Please check your credentials and try again.';
+          console.log(`[userService] Error message (object): Using default message`);
         } else {
           // Fallback for other cases
           errorMessage = 'Login failed. Please check your credentials and try again.';
+          console.log(`[userService] Error message (unknown): Using default message`);
         }
       } else {
         // Fallback if errorData doesn't have a message property
         errorMessage = 'Login failed. Please check your credentials and try again.';
+        console.log(`[userService] No error message property: Using default message`);
       }
       
       throw new Error(errorMessage);
     }
     
     // If we couldn't extract a specific message, throw a generic one
+    console.log(`[userService] No response data: Using generic error message`);
     throw new Error('Login failed. Please check your credentials and try again.');
   }
 }
@@ -286,10 +318,40 @@ export async function updateUserPreferences(preferences: UserPreferences): Promi
  */
 export async function submitCircadianQuestionnaire(questionnaireData: CircadianQuestionnaire): Promise<User> {
   try {
-    const response = await apiClient.userServicePost<User>('/api/users/me/circadian-questionnaire', questionnaireData);
+    console.log('Submitting circadian questionnaire:', JSON.stringify(questionnaireData));
+    const response = await apiClient.userServicePost<User>('/user/circadian-questionnaire', questionnaireData);
+    console.log('Questionnaire submission successful:', response.data);
     return response.data;
   } catch (error) {
     console.error('Error submitting circadian questionnaire:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get all circadian questionnaires for the current user
+ * @returns Array of questionnaires
+ */
+export async function getCircadianQuestionnaires(): Promise<CircadianQuestionnaire[]> {
+  try {
+    const response = await apiClient.userServiceGet<CircadianQuestionnaire[]>('/user/circadian-questionnaire');
+    return response.data;
+  } catch (error) {
+    console.error('Error getting circadian questionnaires:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get the latest circadian questionnaire for the current user
+ * @returns The latest questionnaire or null if none exists
+ */
+export async function getLatestCircadianQuestionnaire(): Promise<CircadianQuestionnaire | null> {
+  try {
+    const response = await apiClient.userServiceGet<CircadianQuestionnaire>('/user/circadian-questionnaire/latest');
+    return response.data;
+  } catch (error) {
+    console.error('Error getting latest circadian questionnaire:', error);
     throw error;
   }
 }
