@@ -108,7 +108,7 @@ export default function LandingScreen() {
               style={styles.loginButton}
               onPress={handleLogin}
             >
-              <Text style={styles.loginButtonText}>Already have an account? Log In</Text>
+              <Text style={styles.loginButtonText}>Log In</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -195,10 +195,19 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   loginButton: {
-    paddingVertical: 5,
+    backgroundColor: Theme.COLORS.SECONDARY,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+    width: '100%',
+    alignItems: 'center',
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   loginButtonText: {
-    color: Theme.COLORS.WHITE,
-    fontSize: 14,
+    color: Theme.COLORS.DEFAULT,
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
