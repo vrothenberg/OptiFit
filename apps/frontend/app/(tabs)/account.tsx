@@ -18,6 +18,7 @@ import Theme from '@/constants/Theme';
 import { useAuth } from '@/services/auth/AuthContext';
 import { getCurrentUser, getLatestCircadianQuestionnaire } from '@/services/userService';
 import { User, CircadianQuestionnaire } from '@/services/api/types';
+import ConfirmationModal from '@/components/ConfirmationModal';
 
 export default function AccountScreen() {
   const router = useRouter();
@@ -26,6 +27,13 @@ export default function AccountScreen() {
   const [darkModeEnabled, setDarkModeEnabled] = useState(false);
   const [fastingReminderEnabled, setFastingReminderEnabled] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [logoutModalVisible, setLogoutModalVisible] = useState(false);
+  const [deleteAccountModalVisible, setDeleteAccountModalVisible] = useState(false);
+  const [editProfileModalVisible, setEditProfileModalVisible] = useState(false);
+  const [helpCenterModalVisible, setHelpCenterModalVisible] = useState(false);
+  const [contactUsModalVisible, setContactUsModalVisible] = useState(false);
+  const [privacyPolicyModalVisible, setPrivacyPolicyModalVisible] = useState(false);
+  const [termsModalVisible, setTermsModalVisible] = useState(false);
   
   // State for user data
   const [userData, setUserData] = useState<User | null>(null);
@@ -103,67 +111,104 @@ export default function AccountScreen() {
     }
   };
   
-  // Handle logout with platform-specific confirmation
+  // Handle logout - show confirmation modal
   const handleLogout = () => {
     console.log('handleLogout called');
-    
-    if (Platform.OS === 'web') {
-      // Use browser's native confirm dialog for web
-      if (window.confirm('Are you sure you want to logout?')) {
-        performLogout();
-      }
-    } else {
-      // Use React Native Alert for native platforms
-      Alert.alert(
-        'Logout',
-        'Are you sure you want to logout?',
-        [
-          {
-            text: 'Cancel',
-            style: 'cancel',
-          },
-          {
-            text: 'Logout',
-            onPress: performLogout,
-          },
-        ]
-      );
-    }
+    setLogoutModalVisible(true);
   };
   
-  // Handle delete account
+  // Handle delete account - show confirmation modal
   const handleDeleteAccount = () => {
-    if (Platform.OS === 'web') {
-      // Use browser's native confirm dialog for web
-      if (window.confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
-        // Navigate to the landing page
-        router.push('/');
-      }
-    } else {
-      // Use React Native Alert for native platforms
-      Alert.alert(
-        'Delete Account',
-        'Are you sure you want to delete your account? This action cannot be undone.',
-        [
-          {
-            text: 'Cancel',
-            style: 'cancel',
-          },
-          {
-            text: 'Delete',
-            style: 'destructive',
-            onPress: () => {
-              // Navigate to the landing page
-              router.push('/');
-            },
-          },
-        ]
-      );
-    }
+    setDeleteAccountModalVisible(true);
+  };
+  
+  // Handle actual delete account action
+  const performDeleteAccount = () => {
+    // Navigate to the landing page
+    router.push('/');
   };
 
   return (
     <View style={styles.container}>
+      {/* Confirmation Modals */}
+      <ConfirmationModal
+        visible={logoutModalVisible}
+        title="Logout"
+        message="Are you sure you want to logout from your account?"
+        confirmText="Logout"
+        cancelText="Cancel"
+        onConfirm={performLogout}
+        onCancel={() => setLogoutModalVisible(false)}
+        icon="sign-out"
+      />
+      
+      <ConfirmationModal
+        visible={deleteAccountModalVisible}
+        title="Delete Account"
+        message="Are you sure you want to delete your account? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={performDeleteAccount}
+        onCancel={() => setDeleteAccountModalVisible(false)}
+        isDestructive={true}
+        icon="trash"
+      />
+      
+      <ConfirmationModal
+        visible={editProfileModalVisible}
+        title="Edit Profile"
+        message="This feature is coming soon! We're working on adding profile editing capabilities."
+        confirmText="OK"
+        cancelText=""
+        onConfirm={() => setEditProfileModalVisible(false)}
+        onCancel={() => setEditProfileModalVisible(false)}
+        icon="user-circle"
+      />
+      
+      <ConfirmationModal
+        visible={helpCenterModalVisible}
+        title="Help Center"
+        message="Our help center is coming soon! We're working on comprehensive guides and FAQs to help you get the most out of OptiFit."
+        confirmText="OK"
+        cancelText=""
+        onConfirm={() => setHelpCenterModalVisible(false)}
+        onCancel={() => setHelpCenterModalVisible(false)}
+        icon="question-circle"
+      />
+      
+      <ConfirmationModal
+        visible={contactUsModalVisible}
+        title="Contact Us"
+        message="Need to get in touch? Our support team will be available soon. We're working on setting up our support channels."
+        confirmText="OK"
+        cancelText=""
+        onConfirm={() => setContactUsModalVisible(false)}
+        onCancel={() => setContactUsModalVisible(false)}
+        icon="envelope"
+      />
+      
+      <ConfirmationModal
+        visible={privacyPolicyModalVisible}
+        title="Privacy Policy"
+        message="Our privacy policy is being finalized. We take your privacy seriously and will provide detailed information about how we handle your data."
+        confirmText="OK"
+        cancelText=""
+        onConfirm={() => setPrivacyPolicyModalVisible(false)}
+        onCancel={() => setPrivacyPolicyModalVisible(false)}
+        icon="lock"
+      />
+      
+      <ConfirmationModal
+        visible={termsModalVisible}
+        title="Terms of Service"
+        message="Our terms of service are being finalized. These will outline the rules and guidelines for using OptiFit."
+        confirmText="OK"
+        cancelText=""
+        onConfirm={() => setTermsModalVisible(false)}
+        onCancel={() => setTermsModalVisible(false)}
+        icon="file-text"
+      />
+      
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Account</Text>
       </View>
@@ -233,13 +278,7 @@ export default function AccountScreen() {
             
             <TouchableOpacity 
               style={styles.editProfileButton}
-              onPress={() => {
-                if (Platform.OS === 'web') {
-                  window.alert('Edit Profile: This feature is coming soon!');
-                } else {
-                  Alert.alert('Edit Profile', 'This feature is coming soon!');
-                }
-              }}
+              onPress={() => setEditProfileModalVisible(true)}
             >
               <Text style={styles.editProfileButtonText}>Edit Profile</Text>
             </TouchableOpacity>
@@ -295,13 +334,7 @@ export default function AccountScreen() {
             
             <TouchableOpacity 
               style={styles.menuItem}
-              onPress={() => {
-                if (Platform.OS === 'web') {
-                  window.alert('Help Center: This feature is coming soon!');
-                } else {
-                  Alert.alert('Help Center', 'This feature is coming soon!');
-                }
-              }}
+              onPress={() => setHelpCenterModalVisible(true)}
             >
               <View style={styles.menuItemLabelContainer}>
                 <FontAwesome name="question-circle" size={20} color={Theme.COLORS.DEFAULT} style={styles.menuItemIcon} />
@@ -312,13 +345,7 @@ export default function AccountScreen() {
             
             <TouchableOpacity 
               style={styles.menuItem}
-              onPress={() => {
-                if (Platform.OS === 'web') {
-                  window.alert('Contact Us: This feature is coming soon!');
-                } else {
-                  Alert.alert('Contact Us', 'This feature is coming soon!');
-                }
-              }}
+              onPress={() => setContactUsModalVisible(true)}
             >
               <View style={styles.menuItemLabelContainer}>
                 <FontAwesome name="envelope" size={20} color={Theme.COLORS.DEFAULT} style={styles.menuItemIcon} />
@@ -329,13 +356,7 @@ export default function AccountScreen() {
             
             <TouchableOpacity 
               style={styles.menuItem}
-              onPress={() => {
-                if (Platform.OS === 'web') {
-                  window.alert('Privacy Policy: This feature is coming soon!');
-                } else {
-                  Alert.alert('Privacy Policy', 'This feature is coming soon!');
-                }
-              }}
+              onPress={() => setPrivacyPolicyModalVisible(true)}
             >
               <View style={styles.menuItemLabelContainer}>
                 <FontAwesome name="lock" size={20} color={Theme.COLORS.DEFAULT} style={styles.menuItemIcon} />
@@ -346,13 +367,7 @@ export default function AccountScreen() {
             
             <TouchableOpacity 
               style={styles.menuItem}
-              onPress={() => {
-                if (Platform.OS === 'web') {
-                  window.alert('Terms of Service: This feature is coming soon!');
-                } else {
-                  Alert.alert('Terms of Service', 'This feature is coming soon!');
-                }
-              }}
+              onPress={() => setTermsModalVisible(true)}
             >
               <View style={styles.menuItemLabelContainer}>
                 <FontAwesome name="file-text" size={20} color={Theme.COLORS.DEFAULT} style={styles.menuItemIcon} />
