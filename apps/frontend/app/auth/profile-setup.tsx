@@ -20,10 +20,11 @@ import { StatusBar } from 'expo-status-bar';
 import { FontAwesome } from '@expo/vector-icons';
 
 import Theme from '@/constants/Theme';
+import { useAuth } from '@/services/auth/AuthContext';
 
 export default function ProfileSetupScreen() {
   const router = useRouter();
-  // No need for userId param anymore as we're using JWT
+  const { isAuthenticated, checkAuth } = useAuth();
   
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -66,12 +67,33 @@ export default function ProfileSetupScreen() {
     setWeightError(null);
   }, [weight]);
 
+  // Redirect to tabs if already authenticated and has completed profile
+  useEffect(() => {
+    const checkAuthStatus = async () => {
+      try {
+        if (isAuthenticated) {
+          // Get current user to check if profile is complete
+          const user = await getCurrentUser();
+          
+          // If user has a complete profile (not the default placeholder values)
+          if (user.firstName !== 'Pending' && user.lastName !== 'Registration') {
+            router.replace('/(tabs)');
+          }
+        }
+      } catch (error) {
+        console.log('Error checking authentication status:', error);
+      }
+    };
+    
+    checkAuthStatus();
+  }, [isAuthenticated, router]);
+
   // Load user data if available, with a delay to ensure token is stored
   useEffect(() => {
     const loadUserData = async () => {
       try {
-        // Add a longer delay to ensure token is stored
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Add a shorter delay since we're using AuthContext
+        await new Promise(resolve => setTimeout(resolve, 1000));
         
         // Check if we have a token before trying to get user data
         const isAuth = await apiClient.isAuthenticated();

@@ -12,5 +12,9 @@ export * from './userService';
 export * from './loggingService';
 export * from './aiService';
 
+// Export auth components
+export * from './auth/AuthContext';
+export * from './auth/ProtectedRoute';
+
 // Export types
 export * from './api/types';

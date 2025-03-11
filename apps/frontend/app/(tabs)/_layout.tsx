@@ -6,6 +6,7 @@ import { Pressable, View } from 'react-native';
 import Theme from '@/constants/Theme';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useClientOnlyValue } from '@/components/useClientOnlyValue';
+import { ProtectedRoute } from '@/services/auth/ProtectedRoute';
 
 // You can explore the built-in icon families and icons on the web at https://icons.expo.fyi/
 function TabBarIcon(props: {
@@ -16,6 +17,14 @@ function TabBarIcon(props: {
 }
 
 export default function TabLayout() {
+  return (
+    <ProtectedRoute>
+      <TabNavigator />
+    </ProtectedRoute>
+  );
+}
+
+function TabNavigator() {
   const colorScheme = useColorScheme();
 
   return (

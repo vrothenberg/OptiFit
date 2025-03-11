@@ -1,16 +1,47 @@
-import React from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Dimensions } from 'react-native';
+import React, { useEffect } from 'react';
+import { StyleSheet, View, Text, TouchableOpacity, Dimensions, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { FontAwesome } from '@expo/vector-icons';
 
 import Theme from '@/constants/Theme';
+import { useAuth } from '@/services/auth/AuthContext';
+import AppLoadingScreen from '@/components/AppLoadingScreen';
 
 const { width, height } = Dimensions.get('window');
 
 export default function LandingScreen() {
   const router = useRouter();
+  const { isAuthenticated, isLoading } = useAuth();
+  
+  // Redirect to tabs if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      // Add a small delay to ensure Root Layout is mounted
+      const timer = setTimeout(() => {
+        router.replace('/(tabs)');
+      }, 200);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isAuthenticated, router]);
+  
+  // Check if we're coming from a logout (for web)
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      const loggingOut = localStorage.getItem('optifit_logging_out');
+      if (loggingOut) {
+        localStorage.removeItem('optifit_logging_out');
+        // No need to navigate, we're already at the root
+      }
+    }
+  }, []);
+  
+  // Show loading screen while checking authentication
+  if (isLoading) {
+    return <AppLoadingScreen />;
+  }
 
   const handleGetStarted = () => {
     router.push('/auth/signup');

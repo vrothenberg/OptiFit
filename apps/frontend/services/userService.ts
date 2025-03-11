@@ -355,3 +355,14 @@ export async function getLatestCircadianQuestionnaire(): Promise<CircadianQuesti
     throw error;
   }
 }
+
+/**
+ * Initiate Google login (placeholder function)
+ * 
+ * This is a placeholder function for Google OAuth login.
+ * In a real implementation, this would use expo-auth-session or similar.
+ */
+export function initiateGoogleLogin(): void {
+  console.log('Google login initiated (placeholder)');
+  // This is just a placeholder - in a real app, this would initiate the OAuth flow
+}

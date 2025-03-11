@@ -11,22 +11,31 @@ import {
   ActivityIndicator,
   Alert
 } from 'react-native';
-import { initialRegister } from '@/services/userService';
+import { initialRegister, initiateGoogleLogin } from '@/services/userService';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link, Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { FontAwesome } from '@expo/vector-icons';
 
 import Theme from '@/constants/Theme';
+import { useAuth } from '@/services/auth/AuthContext';
 
 export default function SignupScreen() {
   const router = useRouter();
+  const { isAuthenticated, checkAuth } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
+  
+  // Redirect to tabs if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.replace('/(tabs)');
+    }
+  }, [isAuthenticated, router]);
   
   // Validation states
   const [emailError, setEmailError] = useState<string | null>(null);
@@ -194,15 +203,23 @@ export default function SignupScreen() {
     }
   };
 
-  const handleGoogleSignup = () => {
+  const handleGoogleSignup = async () => {
     setIsLoading(true);
 
-    // Simulate Google signup process
-    setTimeout(() => {
+    try {
+      // Call the Google login function
+      initiateGoogleLogin();
+      
+      // For demo purposes, we'll just navigate to profile setup after a delay
+      // In a real app, this would happen after the OAuth flow completes
+      setTimeout(() => {
+        router.push('/auth/profile-setup');
+      }, 1500);
+    } catch (error) {
+      Alert.alert('Google Signup Error', 'Failed to sign up with Google. Please try again.');
+    } finally {
       setIsLoading(false);
-      // Navigate to profile setup
-      router.push('/auth/profile-setup');
-    }, 1500);
+    }
   };
 
   return (

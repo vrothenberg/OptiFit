@@ -7,18 +7,23 @@ import {
   TouchableOpacity, 
   Switch,
   Image,
-  Alert
+  Alert,
+  Platform,
+  ActivityIndicator
 } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import Theme from '@/constants/Theme';
+import { useAuth } from '@/services/auth/AuthContext';
 
 export default function AccountScreen() {
   const router = useRouter();
+  const { logout } = useAuth();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [darkModeEnabled, setDarkModeEnabled] = useState(false);
   const [fastingReminderEnabled, setFastingReminderEnabled] = useState(true);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   
   // Mock user data
   const user = {
@@ -29,47 +34,91 @@ export default function AccountScreen() {
     streak: 14,
   };
   
-  // Handle logout
+  // Function to perform the actual logout
+  const performLogout = async () => {
+    try {
+      setIsLoggingOut(true);
+      console.log('Logging out user...');
+      
+      // Call the logout function from AuthContext
+      // This will handle token clearing, state updates, and navigation
+      await logout();
+      
+      // Note: We don't need to handle navigation here
+      // as it's all handled by the AuthContext logout function
+      
+    } catch (error) {
+      console.error('Error during logout:', error);
+      
+      // Platform-specific error alert
+      if (Platform.OS === 'web') {
+        window.alert('There was a problem logging out. Please try again.');
+      } else {
+        Alert.alert('Logout Error', 'There was a problem logging out. Please try again.');
+      }
+    } finally {
+      // Note: We don't need to set isLoggingOut to false here
+      // as the component will be unmounted after logout
+    }
+  };
+  
+  // Handle logout with platform-specific confirmation
   const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Logout',
-          onPress: () => {
-            // Navigate to the landing page
-            router.push('/');
+    console.log('handleLogout called');
+    
+    if (Platform.OS === 'web') {
+      // Use browser's native confirm dialog for web
+      if (window.confirm('Are you sure you want to logout?')) {
+        performLogout();
+      }
+    } else {
+      // Use React Native Alert for native platforms
+      Alert.alert(
+        'Logout',
+        'Are you sure you want to logout?',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
           },
-        },
-      ]
-    );
+          {
+            text: 'Logout',
+            onPress: performLogout,
+          },
+        ]
+      );
+    }
   };
   
   // Handle delete account
   const handleDeleteAccount = () => {
-    Alert.alert(
-      'Delete Account',
-      'Are you sure you want to delete your account? This action cannot be undone.',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            // Navigate to the landing page
-            router.push('/');
+    if (Platform.OS === 'web') {
+      // Use browser's native confirm dialog for web
+      if (window.confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+        // Navigate to the landing page
+        router.push('/');
+      }
+    } else {
+      // Use React Native Alert for native platforms
+      Alert.alert(
+        'Delete Account',
+        'Are you sure you want to delete your account? This action cannot be undone.',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
           },
-        },
-      ]
-    );
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: () => {
+              // Navigate to the landing page
+              router.push('/');
+            },
+          },
+        ]
+      );
+    }
   };
 
   return (
@@ -106,7 +155,13 @@ export default function AccountScreen() {
           
           <TouchableOpacity 
             style={styles.editProfileButton}
-            onPress={() => Alert.alert('Edit Profile', 'This feature is coming soon!')}
+            onPress={() => {
+              if (Platform.OS === 'web') {
+                window.alert('Edit Profile: This feature is coming soon!');
+              } else {
+                Alert.alert('Edit Profile', 'This feature is coming soon!');
+              }
+            }}
           >
             <Text style={styles.editProfileButtonText}>Edit Profile</Text>
           </TouchableOpacity>
@@ -162,7 +217,13 @@ export default function AccountScreen() {
           
           <TouchableOpacity 
             style={styles.menuItem}
-            onPress={() => Alert.alert('Help Center', 'This feature is coming soon!')}
+            onPress={() => {
+              if (Platform.OS === 'web') {
+                window.alert('Help Center: This feature is coming soon!');
+              } else {
+                Alert.alert('Help Center', 'This feature is coming soon!');
+              }
+            }}
           >
             <View style={styles.menuItemLabelContainer}>
               <FontAwesome name="question-circle" size={20} color={Theme.COLORS.DEFAULT} style={styles.menuItemIcon} />
@@ -173,7 +234,13 @@ export default function AccountScreen() {
           
           <TouchableOpacity 
             style={styles.menuItem}
-            onPress={() => Alert.alert('Contact Us', 'This feature is coming soon!')}
+            onPress={() => {
+              if (Platform.OS === 'web') {
+                window.alert('Contact Us: This feature is coming soon!');
+              } else {
+                Alert.alert('Contact Us', 'This feature is coming soon!');
+              }
+            }}
           >
             <View style={styles.menuItemLabelContainer}>
               <FontAwesome name="envelope" size={20} color={Theme.COLORS.DEFAULT} style={styles.menuItemIcon} />
@@ -184,7 +251,13 @@ export default function AccountScreen() {
           
           <TouchableOpacity 
             style={styles.menuItem}
-            onPress={() => Alert.alert('Privacy Policy', 'This feature is coming soon!')}
+            onPress={() => {
+              if (Platform.OS === 'web') {
+                window.alert('Privacy Policy: This feature is coming soon!');
+              } else {
+                Alert.alert('Privacy Policy', 'This feature is coming soon!');
+              }
+            }}
           >
             <View style={styles.menuItemLabelContainer}>
               <FontAwesome name="lock" size={20} color={Theme.COLORS.DEFAULT} style={styles.menuItemIcon} />
@@ -195,7 +268,13 @@ export default function AccountScreen() {
           
           <TouchableOpacity 
             style={styles.menuItem}
-            onPress={() => Alert.alert('Terms of Service', 'This feature is coming soon!')}
+            onPress={() => {
+              if (Platform.OS === 'web') {
+                window.alert('Terms of Service: This feature is coming soon!');
+              } else {
+                Alert.alert('Terms of Service', 'This feature is coming soon!');
+              }
+            }}
           >
             <View style={styles.menuItemLabelContainer}>
               <FontAwesome name="file-text" size={20} color={Theme.COLORS.DEFAULT} style={styles.menuItemIcon} />
@@ -208,10 +287,18 @@ export default function AccountScreen() {
         {/* Account Actions */}
         <View style={styles.section}>
           <TouchableOpacity 
-            style={styles.logoutButton}
+            style={[styles.logoutButton, isLoggingOut && styles.disabledButton]}
             onPress={handleLogout}
+            disabled={isLoggingOut}
           >
-            <Text style={styles.logoutButtonText}>Logout</Text>
+            {isLoggingOut ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color={Theme.COLORS.WHITE} />
+                <Text style={styles.logoutButtonText}>Logging out...</Text>
+              </View>
+            ) : (
+              <Text style={styles.logoutButtonText}>Logout</Text>
+            )}
           </TouchableOpacity>
           
           <TouchableOpacity 
@@ -388,10 +475,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 15,
   },
+  disabledButton: {
+    backgroundColor: Theme.COLORS.MUTED,
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   logoutButtonText: {
     color: Theme.COLORS.WHITE,
     fontSize: 16,
     fontWeight: 'bold',
+    marginLeft: 10,
   },
   deleteAccountButton: {
     backgroundColor: 'transparent',

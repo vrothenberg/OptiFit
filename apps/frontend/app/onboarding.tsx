@@ -23,6 +23,7 @@ import TimePicker from '@/components/TimePicker';
 import * as Storage from '@/services/api/storage';
 import { submitCircadianQuestionnaire } from '@/services/userService';
 import { CircadianQuestionnaire } from '@/services/api/types';
+import { useAuth } from '@/services/auth/AuthContext';
 
 const { width } = Dimensions.get('window');
 
@@ -80,6 +81,7 @@ const QUESTIONNAIRE_PROGRESS_KEY = 'optifit_questionnaire_progress';
 
 export default function OnboardingScreen() {
   const router = useRouter();
+  const { checkAuth } = useAuth();
   const [currentStep, setCurrentStep] = useState(0);
   const [fadeAnim] = useState(new Animated.Value(1));
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -207,8 +209,11 @@ export default function OnboardingScreen() {
       // Clear local storage after successful submission
       await Storage.deleteItemAsync(QUESTIONNAIRE_PROGRESS_KEY);
       
+      // Update authentication state
+      await checkAuth();
+      
       // Navigate to the main app
-      router.push('/(tabs)');
+      router.replace('/(tabs)');
     } catch (error: any) {
       console.error('Error submitting questionnaire:', error);
       setSubmitError('Failed to submit questionnaire. Please try again.');

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   View, 
@@ -19,13 +19,22 @@ import { FontAwesome } from '@expo/vector-icons';
 import Theme from '@/constants/Theme';
 import { loginUser, initiateGoogleLogin } from '@/services/userService';
 import { LoginRequest } from '@/services/api/types';
+import { useAuth } from '@/services/auth/AuthContext';
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { isAuthenticated, checkAuth } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  
+  // Redirect to tabs if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.replace('/(tabs)');
+    }
+  }, [isAuthenticated, router]);
 
   const handleLogin = async () => {
     // Basic validation
@@ -46,8 +55,10 @@ export default function LoginScreen() {
       // Call login API
       const response = await loginUser(loginRequest);
       
-      // Navigate to tabs on successful login
-      router.push('/(tabs)');
+      // Check authentication status
+      await checkAuth();
+      
+      // Navigation will happen automatically via the useEffect above
     } catch (error: any) {
       // Handle login error
       const errorMessage = error.response?.data?.message || 'Login failed. Please try again.';

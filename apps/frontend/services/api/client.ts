@@ -18,6 +18,7 @@ class ApiClient {
   private userServiceClient: AxiosInstance;
   private loggingServiceClient: AxiosInstance;
   private aiServiceClient: AxiosInstance;
+  private authFailureListeners: (() => void)[] = [];
 
   constructor() {
     // Create axios instances for each service
@@ -99,6 +100,10 @@ class ApiClient {
           if (retryCount >= 2) {
             console.error('Maximum token refresh attempts reached. Logging out.');
             await this.clearAuthToken();
+            
+            // Trigger auth failure event for listeners
+            this.triggerAuthFailure();
+            
             return Promise.reject(new Error('Your session has expired. Please log in again.'));
           }
           
@@ -129,12 +134,19 @@ class ApiClient {
               
               // If refresh fails, clear tokens and reject
               await this.clearAuthToken();
+              
+              // Trigger auth failure event for listeners
+              this.triggerAuthFailure();
+              
               return Promise.reject(new Error('Your session has expired. Please log in again.'));
             }
           } else {
             console.log('No refresh token available');
             // No refresh token, clear tokens
             await this.clearAuthToken();
+            
+            // Trigger auth failure event for listeners
+            this.triggerAuthFailure();
           }
           
           // Redirect to login (this would be handled by the app's navigation)
@@ -218,6 +230,33 @@ class ApiClient {
   public async isAuthenticated(): Promise<boolean> {
     const token = await this.getAuthToken();
     return !!token;
+  }
+
+  // Register a listener for auth failures
+  public onAuthFailure(listener: () => void): () => void {
+    this.authFailureListeners.push(listener);
+    
+    // Return a function to unregister the listener
+    return () => {
+      this.authFailureListeners = this.authFailureListeners.filter(l => l !== listener);
+    };
+  }
+
+  // Trigger auth failure event
+  private triggerAuthFailure(): void {
+    console.log('Triggering auth failure event');
+    
+    // Use setTimeout to ensure this runs after the current execution context
+    // This helps prevent race conditions in the UI
+    setTimeout(() => {
+      this.authFailureListeners.forEach(listener => {
+        try {
+          listener();
+        } catch (error) {
+          console.error('Error in auth failure listener:', error);
+        }
+      });
+    }, 0);
   }
 
   // User Service API methods

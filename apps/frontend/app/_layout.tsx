@@ -8,6 +8,8 @@ import { Platform, View } from 'react-native';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
+import { AuthProvider, useAuth } from '@/services/auth/AuthContext';
+import AppLoadingScreen from '@/components/AppLoadingScreen';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -40,7 +42,7 @@ export default function RootLayout() {
   }, [loaded]);
 
   if (!loaded) {
-    return null;
+    return <AppLoadingScreen />;
   }
 
   return <RootLayoutNav />;
@@ -72,29 +74,31 @@ function RootLayoutNav() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      {Platform.OS === 'web' ? (
-        <View style={{
-          flex: 1,
-          alignItems: 'center',
-          backgroundColor: '#f5f5f5', // Light background for the "margins"
-          width: '100%', // Full width for scrolling
-          height: '100%',
-          overflow: 'scroll', // Enable scrolling on the entire view
-        }}>
+      <AuthProvider>
+        {Platform.OS === 'web' ? (
           <View style={{
-            width: '100%',
-            maxWidth: 768, // Increased from 480px for better use of screen space
-            minHeight: '100%',
-            // Use boxShadow for web instead of shadowProps
-            // @ts-ignore - Web-only property
-            boxShadow: '0 0 10px rgba(0, 0, 0, 0.1)',
+            flex: 1,
+            alignItems: 'center',
+            backgroundColor: '#f5f5f5', // Light background for the "margins"
+            width: '100%', // Full width for scrolling
+            height: '100%',
+            overflow: 'scroll', // Enable scrolling on the entire view
           }}>
-            <StackNavigator />
+            <View style={{
+              width: '100%',
+              maxWidth: 768, // Increased from 480px for better use of screen space
+              minHeight: '100%',
+              // Use boxShadow for web instead of shadowProps
+              // @ts-ignore - Web-only property
+              boxShadow: '0 0 10px rgba(0, 0, 0, 0.1)',
+            }}>
+              <StackNavigator />
+            </View>
           </View>
-        </View>
-      ) : (
-        <StackNavigator />
-      )}
+        ) : (
+          <StackNavigator />
+        )}
+      </AuthProvider>
     </ThemeProvider>
   );
 }
