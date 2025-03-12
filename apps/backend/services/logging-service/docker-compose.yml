@@ -1,0 +1,48 @@
+version: '3.8'
+services:
+  timescaledb:
+    image: timescale/timescaledb:latest-pg13
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: logging_service
+    ports:
+      - "5433:5432"  # Using 5433 to avoid conflict with existing Postgres
+    volumes:
+      - timescaledb_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  logging-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+    environment:
+      - PORT=3001
+      - NODE_ENV=development
+      - DB_HOST=timescaledb
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASS=postgres
+      - DB_NAME=logging_service
+      - DB_SYNC=true
+      - DB_LOGGING=false
+      - JWT_SECRET=your_jwt_secret
+      - JWT_EXPIRATION=1h
+      - EDAMAM_APP_ID=your_app_id
+      - EDAMAM_APP_KEY=your_app_key
+    volumes:
+      - .:/usr/src/app
+      - /usr/src/app/node_modules
+    command: npm run start:dev
+
+volumes:
+  timescaledb_data:

@@ -1,0 +1,123 @@
+# TimescaleDB Setup Commands
+
+## Start TimescaleDB Container
+```bash
+docker run -d \
+  --name timescaledb \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=logging_service \
+  -p 5433:5432 \
+  timescale/timescaledb:latest-pg13
+```
+
+## Enable TimescaleDB Extension
+```bash
+docker exec -it timescaledb psql -U postgres -d logging_service -c "CREATE EXTENSION IF NOT EXISTS timescaledb;"
+```
+
+## Entity Modifications for TimescaleDB
+
+When using TimescaleDB with TypeORM, we've implemented the following best practices:
+
+1. Use composite primary keys that include the time column
+2. Use TEXT instead of VARCHAR for string columns
+3. Use TIMESTAMPTZ for all time-related columns
+
+Example entity implementation:
+```typescript
+@Entity('food_logs')
+export class FoodLog {
+  @PrimaryColumn('uuid')
+  @Generated('uuid')
+  id: string;
+
+  @PrimaryColumn('timestamptz')
+  time: Date;
+
+  @Column('text')
+  @Index()
+  userId: string;
+
+  // ... other columns
+}
+```
+
+## Convert Tables to Hypertables
+
+If you need to recreate the tables:
+
+### Drop Tables
+```bash
+docker exec -it timescaledb psql -U postgres -d logging_service -c "DROP TABLE IF EXISTS food_logs CASCADE; DROP TABLE IF EXISTS exercise_logs CASCADE;"
+```
+
+### Convert to Hypertables (After TypeORM Creates Tables)
+```bash
+docker exec -it timescaledb psql -U postgres -d logging_service -c "SELECT create_hypertable('food_logs', 'time', if_not_exists => TRUE);"
+docker exec -it timescaledb psql -U postgres -d logging_service -c "SELECT create_hypertable('exercise_logs', 'time', if_not_exists => TRUE);"
+```
+
+## Verify Hypertables
+```bash
+docker exec -it timescaledb psql -U postgres -d logging_service -c "SELECT * FROM timescaledb_information.hypertables;"
+```
+
+## Useful TimescaleDB Queries
+
+### Check Chunks (Partitions)
+```bash
+docker exec -it timescaledb psql -U postgres -d logging_service -c "SELECT * FROM timescaledb_information.chunks WHERE hypertable_name IN ('food_logs', 'exercise_logs');"
+```
+
+### Query Food Logs with Time Range
+```bash
+docker exec -it timescaledb psql -U postgres -d logging_service -c "SELECT * FROM food_logs WHERE time BETWEEN '2025-01-01' AND '2025-12-31';"
+```
+
+### Query Exercise Logs with Time Range
+```bash
+docker exec -it timescaledb psql -U postgres -d logging_service -c "SELECT * FROM exercise_logs WHERE time BETWEEN '2025-01-01' AND '2025-12-31';"
+```
+
+### Get Aggregated Data (Example: Daily Calorie Sum)
+```bash
+docker exec -it timescaledb psql -U postgres -d logging_service -c "SELECT time_bucket('1 day', time) AS day, SUM(calories) FROM food_logs GROUP BY day ORDER BY day;"
+```
+
+### Time-Weighted Averages (Example: Average Calories Per Day)
+```bash
+docker exec -it timescaledb psql -U postgres -d logging_service -c "SELECT time_bucket('1 day', time) AS day, AVG(calories) FROM food_logs GROUP BY day ORDER BY day;"
+```
+
+### Downsampling Data (Example: Hourly Averages)
+```bash
+docker exec -it timescaledb psql -U postgres -d logging_service -c "SELECT time_bucket('1 hour', time) AS hour, AVG(calories) FROM food_logs GROUP BY hour ORDER BY hour;"
+```
+
+## TimescaleDB Performance Tips
+
+1. Create appropriate indexes on frequently queried columns
+   ```sql
+   CREATE INDEX ON food_logs (userId, time DESC);
+   CREATE INDEX ON exercise_logs (userId, time DESC);
+   ```
+
+2. Use time_bucket for efficient time-based aggregations
+   ```sql
+   SELECT time_bucket('1 day', time) AS day, SUM(calories) 
+   FROM food_logs 
+   WHERE userId = 'user123'
+   GROUP BY day 
+   ORDER BY day DESC;
+   ```
+
+3. Consider compression for older data (if needed in the future)
+   ```sql
+   ALTER TABLE food_logs SET (
+     timescaledb.compress,
+     timescaledb.compress_segmentby = 'userId'
+   );
+   
+   SELECT add_compression_policy('food_logs', INTERVAL '30 days');
+   ```

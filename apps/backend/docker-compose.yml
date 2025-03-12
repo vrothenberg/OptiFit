@@ -30,26 +30,64 @@ services:
       - user_service_node_modules:/usr/src/app/node_modules
     command: npm run start:dev
 
-# Uncomment and configure these services as needed:
-#  logging-service:
-#    build:
-#      context: ./services/logging-service
-#      dockerfile: Dockerfile
-#    ports:
-#      - "3001:3000"
-#    depends_on:
-#      - db
-#
-#  ai-service:
-#    build:
-#      context: ./services/ai-service
-#      dockerfile: Dockerfile
-#    ports:
-#      - "3002:3000"
-#    depends_on:
-#      - db
+  # TimescaleDB for logging-service
+  timescaledb:
+    image: timescale/timescaledb:latest-pg13
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: logging_service
+    ports:
+      - "5433:5432"  # Using 5433 to avoid conflict with existing Postgres
+    volumes:
+      - timescaledb_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  logging-service:
+    build:
+      context: ./services/logging-service
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+    environment:
+      - PORT=3001
+      - NODE_ENV=development
+      - DB_HOST=timescaledb
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASS=postgres
+      - DB_NAME=logging_service
+      - DB_SYNC=true
+      - DB_LOGGING=false
+      - JWT_SECRET=your_jwt_secret
+      - JWT_EXPIRATION=1h
+      - EDAMAM_APP_ID=your_app_id
+      - EDAMAM_APP_KEY=your_app_key
+    volumes:
+      - ./services/logging-service:/usr/src/app
+      - logging_service_node_modules:/usr/src/app/node_modules
+    command: npm run start:dev
+
+  # Uncomment and configure this service as needed:
+  #  ai-service:
+  #    build:
+  #      context: ./services/ai-service
+  #      dockerfile: Dockerfile
+  #    ports:
+  #      - "3002:3000"
+  #    depends_on:
+  #      - db
 
 volumes:
   pgdata:
   user_service_source:
   user_service_node_modules:
+  timescaledb_data:
+  logging_service_node_modules:
