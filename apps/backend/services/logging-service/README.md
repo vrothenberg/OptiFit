@@ -19,6 +19,13 @@ This microservice handles food and exercise logging for the OptiFit application.
 - Docker
 - Swagger
 
+## Documentation
+
+- [API Documentation](./API_DOCUMENTATION.md) - Comprehensive documentation of all API endpoints
+- [TimescaleDB Entity Design](./docs/TIMESCALEDB_ENTITY_DESIGN.md) - Details about the entity design for TimescaleDB
+- [TimescaleDB Setup](./docs/TIMESCALEDB_SETUP.md) - Instructions for setting up and working with TimescaleDB
+- [Edamam API Integration](./docs/EDAMAM_API_INTEGRATION.md) - Information about the Edamam API integration
+
 ## Prerequisites
 
 - Node.js (v18+)
@@ -69,6 +76,8 @@ This microservice handles food and exercise logging for the OptiFit application.
 
 ## API Endpoints
 
+For detailed API documentation, see the [API Documentation](./API_DOCUMENTATION.md) file.
+
 ### Food Logging
 
 - `POST /food/logs` - Create a new food log
@@ -85,16 +94,28 @@ This microservice handles food and exercise logging for the OptiFit application.
 - `PATCH /exercise/logs/:id` - Update an exercise log
 - `DELETE /exercise/logs/:id` - Delete an exercise log
 
+## TimescaleDB Considerations
+
+This service uses TimescaleDB for efficient time-series data storage. Some important considerations:
+
+1. The `time` field is part of the primary key for both `FoodLog` and `ExerciseLog` entities.
+2. Updating the `time` field requires special handling (delete and recreate) because it's part of the primary key.
+3. When querying logs, using time ranges (startDate and endDate) is more efficient due to TimescaleDB's partitioning.
+
+For more details, see the [TimescaleDB Entity Design](./docs/TIMESCALEDB_ENTITY_DESIGN.md) and [TimescaleDB Setup](./docs/TIMESCALEDB_SETUP.md) documentation.
+
 ## Future Enhancements
 
 - Daily and weekly summary endpoints
 - Data export functionality
 - Integration with AI service for personalized recommendations
 - Sleep logging
+- Improved caching for Edamam API requests
+- Batch operations for food and exercise logs
 
 ## Authentication
 
-This service uses JWT authentication. All endpoints require a valid JWT token except those marked as public.
+This service uses JWT authentication. All endpoints require a valid JWT token except those marked as public. The authentication is handled by the User Service, and this service validates the JWT tokens.
 
 ## License
 
