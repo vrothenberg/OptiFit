@@ -76,17 +76,44 @@ export class ExerciseService {
       throw new NotFoundException(`Exercise log with ID ${id} not found`);
     }
 
-    // Convert time string to Date if provided
+    // If time is being updated, we need to delete the old record and create a new one
+    // because time is part of the primary key
     if (updateExerciseLogDto.time) {
-      updateExerciseLogDto.time = new Date(updateExerciseLogDto.time) as any;
+      // Delete the old record
+      await this.exerciseLogRepository.delete({ id, userId });
+
+      // Create a new record with the updated time
+      // We need to be careful to include all required fields
+      const newExerciseLog = this.exerciseLogRepository.create({
+        id, // Keep the same ID
+        userId,
+        name: updateExerciseLogDto.name || exerciseLog.name,
+        type: updateExerciseLogDto.type || exerciseLog.type,
+        duration: updateExerciseLogDto.duration !== undefined ? updateExerciseLogDto.duration : exerciseLog.duration,
+        intensity: updateExerciseLogDto.intensity || exerciseLog.intensity,
+        calories: updateExerciseLogDto.calories !== undefined ? updateExerciseLogDto.calories : exerciseLog.calories,
+        geolocation: updateExerciseLogDto.geolocation || exerciseLog.geolocation,
+        time: new Date(updateExerciseLogDto.time), // Use the new time
+        createdAt: exerciseLog.createdAt, // Preserve the original creation time
+      });
+
+      const savedExerciseLog = await this.exerciseLogRepository.save(newExerciseLog);
+      return plainToInstance(ExerciseLogResponseDto, savedExerciseLog);
+    } else {
+      // If time is not being updated, we can update the existing record
+      // We need to ensure we don't try to update the time field
+      const { time, ...updateFields } = updateExerciseLogDto;
+
+      // Update the record
+      await this.exerciseLogRepository.update({ id, userId }, updateFields);
+
+      // Fetch the updated record
+      const updatedExerciseLog = await this.exerciseLogRepository.findOne({
+        where: { id, userId },
+      });
+
+      return plainToInstance(ExerciseLogResponseDto, updatedExerciseLog);
     }
-
-    const updatedExerciseLog = await this.exerciseLogRepository.save({
-      ...exerciseLog,
-      ...updateExerciseLogDto,
-    });
-
-    return plainToInstance(ExerciseLogResponseDto, updatedExerciseLog);
   }
 
   async remove(id: string, userId: string): Promise<void> {

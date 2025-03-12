@@ -76,17 +76,47 @@ export class FoodService {
       throw new NotFoundException(`Food log with ID ${id} not found`);
     }
 
-    // Convert time string to Date if provided
+    // If time is being updated, we need to delete the old record and create a new one
+    // because time is part of the primary key
     if (updateFoodLogDto.time) {
-      updateFoodLogDto.time = new Date(updateFoodLogDto.time) as any;
+      // Delete the old record
+      await this.foodLogRepository.delete({ id, userId });
+
+      // Create a new record with the updated time
+      // We need to be careful to include all required fields
+      const newFoodLog = this.foodLogRepository.create({
+        id, // Keep the same ID
+        userId,
+        foodName: updateFoodLogDto.foodName || foodLog.foodName,
+        amount: updateFoodLogDto.amount !== undefined ? updateFoodLogDto.amount : foodLog.amount,
+        unit: updateFoodLogDto.unit || foodLog.unit,
+        calories: updateFoodLogDto.calories !== undefined ? updateFoodLogDto.calories : foodLog.calories,
+        protein: updateFoodLogDto.protein !== undefined ? updateFoodLogDto.protein : foodLog.protein,
+        carbs: updateFoodLogDto.carbs !== undefined ? updateFoodLogDto.carbs : foodLog.carbs,
+        fat: updateFoodLogDto.fat !== undefined ? updateFoodLogDto.fat : foodLog.fat,
+        geolocation: updateFoodLogDto.geolocation || foodLog.geolocation,
+        imageUrl: updateFoodLogDto.imageUrl || foodLog.imageUrl,
+        time: new Date(updateFoodLogDto.time), // Use the new time
+        createdAt: foodLog.createdAt, // Preserve the original creation time
+      });
+
+      const savedFoodLog = await this.foodLogRepository.save(newFoodLog);
+      return plainToInstance(FoodLogResponseDto, savedFoodLog);
+    } else {
+      // If time is not being updated, we can update the existing record
+      // We need to ensure we don't try to update the time field
+      const { time, ...updateFields } = updateFoodLogDto;
+
+      // Update the record
+      await this.foodLogRepository.update({ id, userId }, updateFields);
+
+      // Fetch the updated record
+      const updatedFoodLog = await this.foodLogRepository.findOne({
+        where: { id, userId },
+      });
+
+      return plainToInstance(FoodLogResponseDto, updatedFoodLog);
     }
-
-    const updatedFoodLog = await this.foodLogRepository.save({
-      ...foodLog,
-      ...updateFoodLogDto,
-    });
-
-    return plainToInstance(FoodLogResponseDto, updatedFoodLog);
   }
 
   async remove(id: string, userId: string): Promise<void> {

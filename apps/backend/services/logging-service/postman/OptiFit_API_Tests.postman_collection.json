@@ -236,7 +236,7 @@
 					"response": []
 				},
 				{
-					"name": "Update Food Log",
+					"name": "Update Food Log (Without Time)",
 					"request": {
 						"auth": {
 							"type": "bearer",
@@ -270,7 +270,46 @@
 								"{{food_log_id}}"
 							]
 						},
-						"description": "Update an existing food log."
+						"description": "Update an existing food log without changing the time field. This is more efficient as it doesn't require deleting and recreating the record."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Food Log (With Time)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"calories\": 180,\n    \"protein\": 32,\n    \"amount\": 110,\n    \"time\": \"2025-03-11T14:00:00Z\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url_logging_service}}/food/logs/{{food_log_id}}",
+							"host": [
+								"{{base_url_logging_service}}"
+							],
+							"path": [
+								"food",
+								"logs",
+								"{{food_log_id}}"
+							]
+						},
+						"description": "Update an existing food log including the time field. This requires deleting and recreating the record since time is part of the primary key."
 					},
 					"response": []
 				},
@@ -458,7 +497,7 @@
 					"response": []
 				},
 				{
-					"name": "Update Exercise Log",
+					"name": "Update Exercise Log (Without Time)",
 					"request": {
 						"auth": {
 							"type": "bearer",
@@ -492,7 +531,46 @@
 								"{{exercise_log_id}}"
 							]
 						},
-						"description": "Update an existing exercise log."
+						"description": "Update an existing exercise log without changing the time field. This is more efficient as it doesn't require deleting and recreating the record."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Exercise Log (With Time)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"duration\": 45,\n    \"calories\": 450,\n    \"intensity\": \"High\",\n    \"time\": \"2025-03-11T19:00:00Z\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url_logging_service}}/exercise/logs/{{exercise_log_id}}",
+							"host": [
+								"{{base_url_logging_service}}"
+							],
+							"path": [
+								"exercise",
+								"logs",
+								"{{exercise_log_id}}"
+							]
+						},
+						"description": "Update an existing exercise log including the time field. This requires deleting and recreating the record since time is part of the primary key."
 					},
 					"response": []
 				},
