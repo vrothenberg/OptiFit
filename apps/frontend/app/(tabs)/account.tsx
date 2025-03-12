@@ -128,6 +128,11 @@ export default function AccountScreen() {
     router.push('/');
   };
 
+  // Navigate to developer tools screen
+  const navigateToDevTools = () => {
+    router.push('/dev-tools');
+  };
+
   return (
     <View style={styles.container}>
       {/* Confirmation Modals */}
@@ -375,6 +380,17 @@ export default function AccountScreen() {
               </View>
               <FontAwesome name="chevron-right" size={16} color={Theme.COLORS.MUTED} />
             </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={navigateToDevTools}
+            >
+              <View style={styles.menuItemLabelContainer}>
+                <FontAwesome name="bug" size={20} color={Theme.COLORS.DEFAULT} style={styles.menuItemIcon} />
+                <Text style={styles.menuItemLabel}>Developer Tools</Text>
+              </View>
+              <FontAwesome name="chevron-right" size={16} color={Theme.COLORS.MUTED} />
+            </TouchableOpacity>
           </View>
           
           {/* Account Actions */}
@@ -385,12 +401,15 @@ export default function AccountScreen() {
               disabled={isLoggingOut}
             >
               {isLoggingOut ? (
-                <View style={styles.loadingContainer}>
+                <View style={styles.buttonInnerContainer}>
                   <ActivityIndicator size="small" color={Theme.COLORS.WHITE} />
                   <Text style={styles.logoutButtonText}>Logging out...</Text>
                 </View>
               ) : (
-                <Text style={styles.logoutButtonText}>Logout</Text>
+                <View style={styles.buttonInnerContainer}>
+                  <FontAwesome name="sign-out" size={18} color={Theme.COLORS.WHITE} style={styles.buttonIcon} />
+                  <Text style={styles.logoutButtonText}>Logout</Text>
+                </View>
               )}
             </TouchableOpacity>
             
@@ -398,7 +417,10 @@ export default function AccountScreen() {
               style={styles.deleteAccountButton}
               onPress={handleDeleteAccount}
             >
-              <Text style={styles.deleteAccountButtonText}>Delete Account</Text>
+              <View style={styles.buttonInnerContainer}>
+                <FontAwesome name="trash" size={18} color={Theme.COLORS.ERROR} style={styles.buttonIcon} />
+                <Text style={styles.deleteAccountButtonText}>Delete Account</Text>
+              </View>
             </TouchableOpacity>
           </View>
           
@@ -599,6 +621,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Theme.COLORS.DEFAULT,
   },
+  buttonInnerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buttonIcon: {
+    marginRight: 10,
+  },
   logoutButton: {
     backgroundColor: Theme.COLORS.PRIMARY,
     paddingVertical: 15,
@@ -613,7 +643,6 @@ const styles = StyleSheet.create({
     color: Theme.COLORS.WHITE,
     fontSize: 16,
     fontWeight: 'bold',
-    marginLeft: 10,
   },
   deleteAccountButton: {
     backgroundColor: 'transparent',

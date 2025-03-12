@@ -366,3 +366,137 @@ export function initiateGoogleLogin(): void {
   console.log('Google login initiated (placeholder)');
   // This is just a placeholder - in a real app, this would initiate the OAuth flow
 }
+
+/**
+ * Invalidate the current token for testing purposes
+ * 
+ * This function deliberately corrupts the stored access token to simulate
+ * an expired or invalid token scenario. This is useful for testing the
+ * application's behavior when tokens are invalid.
+ * 
+ * @param invalidationType The type of invalidation to perform:
+ *   - 'corrupt': Modifies the token to make it malformed (default)
+ *   - 'empty': Sets the token to an empty string
+ *   - 'expired': Attempts to modify the token to appear expired
+ * 
+ * @returns A promise that resolves when the token has been invalidated
+ */
+export async function invalidateToken(invalidationType: 'corrupt' | 'empty' | 'expired' = 'corrupt'): Promise<void> {
+  try {
+    console.log(`[userService] Invalidating token (type: ${invalidationType})`);
+    
+    // Get the current token
+    const currentToken = await apiClient.getAuthToken();
+    
+    if (!currentToken) {
+      console.warn('[userService] No token found to invalidate');
+      return;
+    }
+    
+    let invalidToken: string;
+    
+    switch (invalidationType) {
+      case 'empty':
+        // Set to empty string
+        invalidToken = '';
+        break;
+        
+      case 'expired':
+        try {
+          // JWT tokens have three parts separated by dots
+          const parts = currentToken.split('.');
+          
+          if (parts.length !== 3) {
+            // Not a valid JWT token, fall back to corruption
+            invalidToken = currentToken + '_invalid';
+            break;
+          }
+          
+          // The second part is the payload, which we'll modify
+          const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
+          
+          // Set expiration to a past time
+          payload.exp = Math.floor(Date.now() / 1000) - 3600; // 1 hour ago
+          
+          // Encode the modified payload
+          const modifiedPayload = Buffer.from(JSON.stringify(payload)).toString('base64')
+            .replace(/=/g, '') // Remove padding
+            .replace(/\+/g, '-') // Replace + with -
+            .replace(/\//g, '_'); // Replace / with _
+          
+          // Reconstruct the token with the modified payload
+          invalidToken = `${parts[0]}.${modifiedPayload}.${parts[2]}`;
+        } catch (error) {
+          console.error('[userService] Error creating expired token:', error);
+          // Fall back to corruption
+          invalidToken = currentToken + '_invalid';
+        }
+        break;
+        
+      case 'corrupt':
+      default:
+        // Append an invalid string to corrupt the token
+        invalidToken = currentToken + '_invalid';
+        break;
+    }
+    
+    // Store the invalid token
+    await apiClient.setAuthToken(invalidToken);
+    console.log('[userService] Token invalidated successfully');
+    
+    // Verify the token was changed
+    const newToken = await apiClient.getAuthToken();
+    console.log(`[userService] New token: ${newToken ? (newToken === invalidToken ? 'Successfully invalidated' : 'Unexpected token value') : 'No token found'}`);
+    
+  } catch (error) {
+    console.error('[userService] Error invalidating token:', error);
+    throw new Error('Failed to invalidate token');
+  }
+}
+
+/**
+ * Force logout the user regardless of token state
+ * 
+ * This function provides a way to log out even when the normal logout
+ * flow might be broken due to token issues. It clears tokens and
+ * forces a navigation to the login screen.
+ * 
+ * @returns A promise that resolves when the force logout is complete
+ */
+export async function forceLogout(): Promise<void> {
+  try {
+    console.log('[userService] Force logout initiated');
+    
+    // Clear tokens first to ensure we're logged out
+    await apiClient.clearAuthToken();
+    
+    // For web, force a hard navigation
+    if (Platform.OS === 'web') {
+      console.log('[userService] Using window.location for web navigation');
+      // Set a flag in localStorage to indicate we're force logging out
+      localStorage.setItem('optifit_force_logout', 'true');
+      
+      // Force a full page reload by using window.location
+      // This ensures we get a fresh page load and not just a client-side navigation
+      window.location.href = '/';
+      
+      // Return early since the page will reload
+      return;
+    }
+    
+    // For native, we would need to use a global event system
+    // This is a placeholder - in a real app, you might use a global event emitter
+    console.log('[userService] Force logout completed for native platform');
+  } catch (error) {
+    console.error('[userService] Error during force logout:', error);
+    
+    // Even if there's an error, try the most direct approach for web
+    if (Platform.OS === 'web') {
+      // Last resort - force navigation even if the rest failed
+      window.location.href = '/';
+    }
+    
+    // For native, we need to propagate the error
+    throw new Error('Force logout failed');
+  }
+}

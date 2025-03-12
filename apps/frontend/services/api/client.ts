@@ -248,8 +248,49 @@ class ApiClient {
 
   // Check if the user is authenticated
   public async isAuthenticated(): Promise<boolean> {
-    const token = await this.getAuthToken();
-    return !!token;
+    try {
+      const token = await this.getAuthToken();
+      
+      // If no token exists, user is not authenticated
+      if (!token) {
+        return false;
+      }
+      
+      // Check if token is expired by trying to decode it
+      // JWT tokens have three parts separated by dots
+      const parts = token.split('.');
+      
+      if (parts.length !== 3) {
+        console.log('Token is not a valid JWT format');
+        // Invalid token format, trigger auth failure
+        this.triggerAuthFailure();
+        return false;
+      }
+      
+      try {
+        // Try to decode the payload
+        const payload = JSON.parse(atob(parts[1]));
+        
+        // Check if token is expired
+        if (payload.exp && payload.exp * 1000 < Date.now()) {
+          console.log('Token is expired');
+          // Token is expired, trigger auth failure
+          this.triggerAuthFailure();
+          return false;
+        }
+        
+        // Token exists and is not expired
+        return true;
+      } catch (decodeError) {
+        console.error('Error decoding token:', decodeError);
+        // Error decoding token, trigger auth failure
+        this.triggerAuthFailure();
+        return false;
+      }
+    } catch (error) {
+      console.error('Error checking authentication:', error);
+      return false;
+    }
   }
 
   // Register a listener for auth failures

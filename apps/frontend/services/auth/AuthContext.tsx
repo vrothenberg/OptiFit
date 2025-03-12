@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import { useRouter, useSegments } from 'expo-router';
-import { Platform } from 'react-native';
+import { Platform, Alert } from 'react-native';
 import apiClient from '../api/client';
 import { logoutUser } from '../userService';
 import AppLoadingScreen from '@/components/AppLoadingScreen';
@@ -111,9 +111,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  // Effect to check authentication status on mount
+  // Effect to check authentication status on mount and periodically
   useEffect(() => {
+    // Initial auth check
     checkAuth();
+    
+    // Set up periodic auth check (every 5 minutes)
+    const intervalId = setInterval(() => {
+      console.log('Performing periodic auth check');
+      checkAuth();
+    }, 5 * 60 * 1000); // 5 minutes
+    
+    return () => clearInterval(intervalId);
   }, []);
 
   // Register a listener for auth failures from the API client
@@ -122,7 +131,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const unsubscribe = apiClient.onAuthFailure(() => {
       console.log('Auth failure detected in AuthContext');
       setIsAuthenticated(false);
-      router.replace('/');
+      
+      // For web, force a hard navigation to ensure a full page reload
+      if (Platform.OS === 'web') {
+        console.log('Using window.location for web navigation on auth failure');
+        // Set a flag in localStorage to indicate we're logging out due to auth failure
+        localStorage.setItem('optifit_auth_failure', 'true');
+        
+        // Force a full page reload by using window.location
+        window.location.href = '/';
+        return;
+      } else {
+        // For native, show a notification and use router
+        Alert.alert('Session Expired', 'Your session has expired. You will be redirected to the login page.');
+        router.replace('/');
+      }
     });
     
     return () => unsubscribe();
@@ -140,12 +163,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     const inAuthGroup = segments[0] === 'auth';
     const inProtectedGroup = segments[0] === '(tabs)';
+    const inDevTools = segments[0] === 'dev-tools';
     // Fix TypeScript error with proper type assertion
     const segmentsLength = segments.length as number;
     const inRootRoute = segmentsLength === 0 || (
       segmentsLength === 1 && 
       segments[0] !== 'auth' && 
-      segments[0] !== '(tabs)'
+      segments[0] !== '(tabs)' &&
+      segments[0] !== 'dev-tools'
     );
 
     console.log('Auth navigation effect triggered:', { 

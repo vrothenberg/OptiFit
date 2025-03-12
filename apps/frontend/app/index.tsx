@@ -27,13 +27,29 @@ export default function LandingScreen() {
     }
   }, [isAuthenticated, router]);
   
-  // Check if we're coming from a logout (for web)
+  // Check if we're coming from a logout or token invalidation (for web)
   useEffect(() => {
     if (Platform.OS === 'web') {
+      // Check for normal logout
       const loggingOut = localStorage.getItem('optifit_logging_out');
       if (loggingOut) {
         localStorage.removeItem('optifit_logging_out');
         // No need to navigate, we're already at the root
+      }
+      
+      // Check for auth failure
+      const authFailure = localStorage.getItem('optifit_auth_failure');
+      if (authFailure) {
+        localStorage.removeItem('optifit_auth_failure');
+        // No need to navigate, we're already at the root
+      }
+      
+      // Check for token invalidation
+      const tokenInvalidated = localStorage.getItem('optifit_token_invalidated');
+      if (tokenInvalidated) {
+        const invalidationType = tokenInvalidated;
+        localStorage.removeItem('optifit_token_invalidated');
+        console.log(`Landing page detected token was invalidated (${invalidationType})`);
       }
     }
   }, []);
