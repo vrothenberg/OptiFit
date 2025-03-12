@@ -128,14 +128,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return () => unsubscribe();
   }, [router]);
 
+  // Create a ref to track navigation attempts
+  const navigationAttemptedRef = React.useRef(false);
+  
   // Effect to handle navigation based on auth state
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || isTransitioning) return;
+    
+    // If we've already attempted navigation in this render cycle, don't try again
+    if (navigationAttemptedRef.current) return;
 
     const inAuthGroup = segments[0] === 'auth';
     const inProtectedGroup = segments[0] === '(tabs)';
     // Fix TypeScript error with proper type assertion
-    // Use type assertion to fix TypeScript errors
     const segmentsLength = segments.length as number;
     const inRootRoute = segmentsLength === 0 || (
       segmentsLength === 1 && 
@@ -151,23 +156,36 @@ export function AuthProvider({ children }: AuthProviderProps) {
       inRootRoute
     });
 
-    // Don't navigate if we're already transitioning
-    if (isTransitioning) return;
+    // Set navigation flag to true to prevent multiple attempts
+    navigationAttemptedRef.current = true;
 
-    if (!isAuthenticated && inProtectedGroup) {
-      // Redirect to landing page if user is not authenticated and tries to access protected routes
-      console.log('Not authenticated, redirecting from protected route to landing page');
-      navigateWithTransition('/');
-    } else if (isAuthenticated && inAuthGroup) {
-      // Redirect to home if user is authenticated and tries to access auth routes
-      console.log('Authenticated, redirecting from auth route to tabs');
-      navigateWithTransition('/(tabs)');
-    } else if (isAuthenticated && inRootRoute) {
-      // Redirect to tabs if user is authenticated and at the root route
-      console.log('Authenticated at root route, redirecting to tabs');
-      navigateWithTransition('/(tabs)');
+    try {
+      if (!isAuthenticated && inProtectedGroup) {
+        // Redirect to landing page if user is not authenticated and tries to access protected routes
+        console.log('Not authenticated, redirecting from protected route to landing page');
+        navigateWithTransition('/');
+      } else if (isAuthenticated && inAuthGroup) {
+        // Redirect to home if user is authenticated and tries to access auth routes
+        console.log('Authenticated, redirecting from auth route to tabs');
+        navigateWithTransition('/(tabs)');
+      } else if (isAuthenticated && inRootRoute) {
+        // Redirect to tabs if user is authenticated and at the root route
+        console.log('Authenticated at root route, redirecting to tabs');
+        navigateWithTransition('/(tabs)');
+      }
+    } catch (error) {
+      console.error('Navigation error in auth effect:', error);
+      // Reset the navigation flag if there was an error
+      navigationAttemptedRef.current = false;
     }
-  }, [isAuthenticated, segments, isLoading]);
+
+    // Reset the navigation flag after a delay
+    const resetTimer = setTimeout(() => {
+      navigationAttemptedRef.current = false;
+    }, 1000);
+
+    return () => clearTimeout(resetTimer);
+  }, [isAuthenticated, segments, isLoading, isTransitioning]);
 
   // Provide a loading screen during authentication checks, transitions, or logout
   if (isLoading || isTransitioning || isLoggingOut) {

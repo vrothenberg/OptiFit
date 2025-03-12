@@ -1,10 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between } from 'typeorm';
+import { Repository, Between, MoreThanOrEqual, LessThanOrEqual } from 'typeorm';
 import { FoodLog } from './entities/food-log.entity';
 import { CreateFoodLogDto } from './dto/create-food-log.dto';
 import { UpdateFoodLogDto } from './dto/update-food-log.dto';
 import { FoodLogResponseDto } from './dto/food-log-response.dto';
+import { FoodDailySummaryDto, FoodWeeklySummaryDto } from './dto/food-daily-summary.dto';
 import { plainToInstance } from 'class-transformer';
 
 @Injectable()
@@ -127,5 +128,92 @@ export class FoodService {
     }
   }
 
-  // TODO: Add methods for daily and weekly summaries
+  async getDailySummary(userId: string, date: Date): Promise<FoodDailySummaryDto> {
+    // Create start and end date for the given day
+    const startDate = new Date(date);
+    startDate.setHours(0, 0, 0, 0);
+    
+    const endDate = new Date(date);
+    endDate.setHours(23, 59, 59, 999);
+    
+    // Get all food logs for the day
+    const foodLogs = await this.foodLogRepository.find({
+      where: {
+        userId,
+        time: Between(startDate, endDate),
+      },
+    });
+    
+    // Calculate totals
+    const totalCalories = foodLogs.reduce((sum, log) => sum + log.calories, 0);
+    const totalProtein = foodLogs.reduce((sum, log) => sum + log.protein, 0);
+    const totalCarbs = foodLogs.reduce((sum, log) => sum + log.carbs, 0);
+    const totalFat = foodLogs.reduce((sum, log) => sum + log.fat, 0);
+    
+    // Create and return the summary
+    const summary = new FoodDailySummaryDto({
+      date: startDate.toISOString().split('T')[0], // Format as YYYY-MM-DD
+      totalCalories,
+      totalProtein,
+      totalCarbs,
+      totalFat,
+      mealCount: foodLogs.length,
+    });
+    
+    return summary;
+  }
+  
+  async getWeeklySummary(userId: string, startDate: Date): Promise<FoodWeeklySummaryDto> {
+    // Create start and end date for the week
+    const start = new Date(startDate);
+    start.setHours(0, 0, 0, 0);
+    
+    const end = new Date(startDate);
+    end.setDate(end.getDate() + 6); // 7 days total (including start date)
+    end.setHours(23, 59, 59, 999);
+    
+    // Get daily summaries for each day in the week
+    const dailySummaries: FoodDailySummaryDto[] = [];
+    
+    for (let i = 0; i < 7; i++) {
+      const currentDate = new Date(start);
+      currentDate.setDate(currentDate.getDate() + i);
+      const summary = await this.getDailySummary(userId, currentDate);
+      dailySummaries.push(summary);
+    }
+    
+    // Calculate averages
+    const averageCalories = dailySummaries.reduce((sum, day) => sum + day.totalCalories, 0) / 7;
+    const averageProtein = dailySummaries.reduce((sum, day) => sum + day.totalProtein, 0) / 7;
+    const averageCarbs = dailySummaries.reduce((sum, day) => sum + day.totalCarbs, 0) / 7;
+    const averageFat = dailySummaries.reduce((sum, day) => sum + day.totalFat, 0) / 7;
+    
+    // Create and return the summary
+    const summary = new FoodWeeklySummaryDto({
+      startDate: start.toISOString().split('T')[0],
+      endDate: end.toISOString().split('T')[0],
+      dailySummaries,
+      averageCalories,
+      averageProtein,
+      averageCarbs,
+      averageFat,
+    });
+    
+    return summary;
+  }
+  
+  async getCurrentDaySummary(userId: string): Promise<FoodDailySummaryDto> {
+    const today = new Date();
+    return this.getDailySummary(userId, today);
+  }
+  
+  async getCurrentWeekSummary(userId: string): Promise<FoodWeeklySummaryDto> {
+    // Get the start of the current week (Sunday)
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - dayOfWeek); // Go back to Sunday
+    
+    return this.getWeeklySummary(userId, startOfWeek);
+  }
 }

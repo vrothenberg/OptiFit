@@ -8,7 +8,7 @@
 const ENV = {
   dev: {
     userServiceUrl: 'http://localhost:3000',
-    loggingServiceUrl: 'http://localhost:4002',
+    loggingServiceUrl: 'http://localhost:3001',
     aiServiceUrl: 'http://localhost:4001',
   },
   staging: {

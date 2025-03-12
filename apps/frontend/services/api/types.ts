@@ -153,6 +153,25 @@ export interface FoodLogsResponse {
   data: FoodLog[];
 }
 
+export interface FoodDailySummary {
+  date: string;
+  totalCalories: number;
+  totalProtein: number;
+  totalCarbs: number;
+  totalFat: number;
+  mealCount: number;
+}
+
+export interface FoodWeeklySummary {
+  startDate: string;
+  endDate: string;
+  dailySummaries: FoodDailySummary[];
+  averageCalories: number;
+  averageProtein: number;
+  averageCarbs: number;
+  averageFat: number;
+}
+
 // Exercise Logging
 
 export interface ExerciseLog {
@@ -201,6 +220,21 @@ export interface UpdateExerciseLogRequest {
 export interface ExerciseLogsResponse {
   total: number;
   data: ExerciseLog[];
+}
+
+export interface ExerciseDailySummary {
+  date: string;
+  totalCalories: number;
+  totalDuration: number;
+  exerciseCount: number;
+}
+
+export interface ExerciseWeeklySummary {
+  startDate: string;
+  endDate: string;
+  dailySummaries: ExerciseDailySummary[];
+  averageCalories: number;
+  averageDuration: number;
 }
 
 // Sleep Logging

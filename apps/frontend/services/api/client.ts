@@ -87,6 +87,7 @@ class ApiClient {
         const isAuthEndpoint = 
           error.config.url?.includes('/auth/login') || 
           error.config.url?.includes('/auth/register') ||
+          error.config.url?.includes('/auth/refresh') ||
           (error.config.url === '/user' && error.config.method === 'post');
         
         // Add retry count property if it doesn't exist
@@ -95,8 +96,9 @@ class ApiClient {
         
         // Handle 401 Unauthorized errors (but not for auth endpoints)
         if (error.response?.status === 401 && !isAuthEndpoint) {
-          // Check if we've already tried to refresh too many times
+          console.log(`401 error for ${error.config.url}, retry count: ${retryCount}`);
           
+          // Check if we've already tried to refresh too many times
           if (retryCount >= 2) {
             console.error('Maximum token refresh attempts reached. Logging out.');
             await this.clearAuthToken();
@@ -107,51 +109,69 @@ class ApiClient {
             return Promise.reject(new Error('Your session has expired. Please log in again.'));
           }
           
-          // Try to refresh the token
-          const refreshToken = await this.getRefreshToken();
-          
-          if (refreshToken) {
-            try {
-              console.log('Attempting to refresh access token...');
-              // Try to get a new access token
-              const response = await this.refreshAccessToken(refreshToken);
+          try {
+            // Try to refresh the token
+            const refreshToken = await this.getRefreshToken();
+            
+            if (!refreshToken) {
+              console.log('No refresh token available, triggering auth failure');
+              await this.clearAuthToken();
+              this.triggerAuthFailure();
+              return Promise.reject(new Error('Your session has expired. Please log in again.'));
+            }
+            
+            console.log('Attempting to refresh access token...');
+            
+            // Create a new instance for the refresh request to avoid interceptors
+            const axiosInstance = axios.create({
+              baseURL: this.userServiceClient.defaults.baseURL,
+              timeout: config.timeout,
+            });
+            
+            // Try to get a new access token
+            const response = await axiosInstance.post('/auth/refresh', { refreshToken });
+            
+            if (response.data && response.data.accessToken) {
+              console.log('Token refresh successful, retrying original request');
               
-              if (response) {
-                console.log('Token refresh successful, retrying original request');
-                // Retry the original request with the new token
-                const originalRequest = error.config;
-                if (originalRequest && originalRequest.headers) {
-                  originalRequest.headers.Authorization = `Bearer ${response.accessToken}`;
-                  // Increment retry count
-                  // @ts-ignore - Accessing custom property
-                  originalRequest._retryCount = retryCount + 1;
+              // Store the new tokens
+              await this.setAuthToken(response.data.accessToken);
+              if (response.data.refreshToken) {
+                await this.setRefreshToken(response.data.refreshToken);
+              }
+              
+              // Retry the original request with the new token
+              const originalRequest = error.config;
+              if (originalRequest && originalRequest.headers) {
+                originalRequest.headers.Authorization = `Bearer ${response.data.accessToken}`;
+                // Increment retry count
+                // @ts-ignore - Accessing custom property
+                originalRequest._retryCount = retryCount + 1;
+                
+                // Use the appropriate client based on the original URL
+                if (originalRequest.baseURL?.includes(config.loggingServiceUrl)) {
+                  return this.loggingServiceClient(originalRequest);
+                } else if (originalRequest.baseURL?.includes(config.aiServiceUrl)) {
+                  return this.aiServiceClient(originalRequest);
+                } else {
                   return this.userServiceClient(originalRequest);
                 }
               }
-            } catch (refreshError: any) {
-              const errorMessage = refreshError?.response?.data?.message || 'Unknown error refreshing token';
-              console.error(`Error refreshing token: ${errorMessage}`);
-              
-              // If refresh fails, clear tokens and reject
-              await this.clearAuthToken();
-              
-              // Trigger auth failure event for listeners
-              this.triggerAuthFailure();
-              
-              return Promise.reject(new Error('Your session has expired. Please log in again.'));
+            } else {
+              throw new Error('Invalid response from refresh token endpoint');
             }
-          } else {
-            console.log('No refresh token available');
-            // No refresh token, clear tokens
+          } catch (refreshError: any) {
+            const errorMessage = refreshError?.response?.data?.message || 'Unknown error refreshing token';
+            console.error(`Error refreshing token: ${errorMessage}`, refreshError);
+            
+            // If refresh fails, clear tokens and reject
             await this.clearAuthToken();
             
             // Trigger auth failure event for listeners
             this.triggerAuthFailure();
+            
+            return Promise.reject(new Error('Your session has expired. Please log in again.'));
           }
-          
-          // Redirect to login (this would be handled by the app's navigation)
-          // For now, we'll just reject the promise with a more user-friendly message
-          return Promise.reject(new Error('Your session has expired. Please log in again.'));
         }
         
         // For other errors, pass through with better error messages

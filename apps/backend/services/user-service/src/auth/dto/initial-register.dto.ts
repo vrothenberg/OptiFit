@@ -8,6 +8,6 @@ export class InitialRegisterDto {
 
   @ApiProperty({ description: 'User password (will be hashed)', example: 'secret123' })
   @IsString()
-  @MinLength(6)
+  @MinLength(8)
   password: string;
 }

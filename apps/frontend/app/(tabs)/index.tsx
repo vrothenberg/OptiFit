@@ -4,26 +4,69 @@ import { FontAwesome } from '@expo/vector-icons';
 
 import Theme from '@/constants/Theme';
 import { getCurrentUser, getLatestCircadianQuestionnaire } from '@/services/userService';
-import { User, CircadianQuestionnaire } from '@/services/api/types';
+import { 
+  getFoodLogs, 
+  getCurrentDayFoodSummary, 
+  getFoodWeeklySummary,
+  getExerciseLogs,
+  getCurrentDayExerciseSummary,
+  getCurrentWeekExerciseSummary
+} from '@/services/loggingService';
+import { 
+  User, 
+  CircadianQuestionnaire, 
+  FoodDailySummary, 
+  FoodLog,
+  ExerciseDailySummary,
+  ExerciseLog
+} from '@/services/api/types';
 
 export default function DashboardScreen() {
   // State for user data
   const [user, setUser] = useState<User | null>(null);
   const [questionnaire, setQuestionnaire] = useState<CircadianQuestionnaire | null>(null);
+  const [foodSummary, setFoodSummary] = useState<FoodDailySummary | null>(null);
+  const [exerciseSummary, setExerciseSummary] = useState<ExerciseDailySummary | null>(null);
+  const [recentFoodLogs, setRecentFoodLogs] = useState<FoodLog[]>([]);
+  const [recentExerciseLogs, setRecentExerciseLogs] = useState<ExerciseLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch user data on component mount
+  // Fetch user data, food logs, and exercise logs on component mount
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        const [userData, questionnaireData] = await Promise.all([
+        const [
+          userData, 
+          questionnaireData, 
+          foodSummaryData, 
+          exerciseSummaryData,
+          foodLogsData,
+          exerciseLogsData
+        ] = await Promise.all([
           getCurrentUser(),
-          getLatestCircadianQuestionnaire()
+          getLatestCircadianQuestionnaire(),
+          getCurrentDayFoodSummary(),
+          getCurrentDayExerciseSummary(),
+          getFoodLogs({ 
+            startDate: new Date(new Date().setHours(0, 0, 0, 0)).toISOString(),
+            endDate: new Date().toISOString(),
+            limit: 3
+          }),
+          getExerciseLogs({
+            startDate: new Date(new Date().setHours(0, 0, 0, 0)).toISOString(),
+            endDate: new Date().toISOString(),
+            limit: 3
+          })
         ]);
+        
         setUser(userData);
         setQuestionnaire(questionnaireData);
+        setFoodSummary(foodSummaryData);
+        setExerciseSummary(exerciseSummaryData);
+        setRecentFoodLogs(foodLogsData.data);
+        setRecentExerciseLogs(exerciseLogsData.data);
       } catch (err) {
         console.error('Error fetching dashboard data:', err);
         setError('Failed to load dashboard data');
@@ -41,17 +84,12 @@ export default function DashboardScreen() {
      questionnaire.chronotype === 'intermediate' ? 75 : 65) : 
     70;
   
-  // Mock data for parts not yet implemented in the backend
-  const todayProgress = {
-    calories: 1450,
+  // Define nutrition goals (these could come from user preferences in the future)
+  const nutritionGoals = {
     caloriesGoal: 2000,
-    protein: 65,
     proteinGoal: 120,
-    carbs: 180,
     carbsGoal: 250,
-    fat: 45,
     fatGoal: 65,
-    water: 5,
     waterGoal: 8,
   };
   
@@ -63,12 +101,33 @@ export default function DashboardScreen() {
       questionnaire.mealTimes[questionnaire.mealTimes.length - 1] : '8:30 PM',
   };
   
-  // Mock data for recent activities (not yet implemented in backend)
-  const recentActivities = [
-    { id: 1, type: 'food', name: 'Breakfast', time: '7:30 AM', calories: 450 },
-    { id: 2, type: 'exercise', name: 'Morning Run', time: '8:15 AM', calories: -320 },
-    { id: 3, type: 'food', name: 'Lunch', time: '12:45 PM', calories: 580 },
-  ];
+  // Format food and exercise logs for display in the recent activities section
+  const formatRecentActivities = () => {
+    // Convert food logs to activity format
+    const foodActivities = recentFoodLogs.map(log => ({
+      id: log.id,
+      type: 'food',
+      name: log.foodName,
+      time: new Date(log.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      calories: log.calories
+    }));
+    
+    // Convert exercise logs to activity format
+    const exerciseActivities = recentExerciseLogs.map(log => ({
+      id: log.id,
+      type: 'exercise',
+      name: log.name,
+      time: new Date(log.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      calories: -log.calories // Negative to show as calories burned
+    }));
+    
+    // Merge and sort by time (most recent first)
+    return [...foodActivities, ...exerciseActivities].sort((a, b) => {
+      return new Date(b.time).getTime() - new Date(a.time).getTime();
+    });
+  };
+  
+  const recentActivities = formatRecentActivities();
   
   // Personalized recommendations based on user data
   const getRecommendations = () => {
@@ -171,12 +230,12 @@ export default function DashboardScreen() {
               <View 
                 style={[
                   styles.progressBar, 
-                  { width: `${calculateProgress(todayProgress.calories, todayProgress.caloriesGoal)}%` }
+                  { width: `${calculateProgress(foodSummary?.totalCalories || 0, nutritionGoals.caloriesGoal)}%` }
                 ]} 
               />
             </View>
             <Text style={styles.progressText}>
-              {todayProgress.calories} / {todayProgress.caloriesGoal}
+              {foodSummary?.totalCalories || 0} / {nutritionGoals.caloriesGoal}
             </Text>
           </View>
           
@@ -190,31 +249,50 @@ export default function DashboardScreen() {
               <View 
                 style={[
                   styles.progressBar, 
-                  { width: `${calculateProgress(todayProgress.protein, todayProgress.proteinGoal)}%` }
+                  { width: `${calculateProgress(foodSummary?.totalProtein || 0, nutritionGoals.proteinGoal)}%` }
                 ]} 
               />
             </View>
             <Text style={styles.progressText}>
-              {todayProgress.protein}g / {todayProgress.proteinGoal}g
+              {foodSummary?.totalProtein || 0}g / {nutritionGoals.proteinGoal}g
             </Text>
           </View>
           
-          {/* Water */}
+          {/* Carbs */}
           <View style={styles.progressItem}>
             <View style={styles.progressLabelContainer}>
-              <FontAwesome name="tint" size={16} color={Theme.COLORS.PRIMARY} />
-              <Text style={styles.progressLabel}>Water</Text>
+              <FontAwesome name="leaf" size={16} color={Theme.COLORS.PRIMARY} />
+              <Text style={styles.progressLabel}>Carbs</Text>
             </View>
             <View style={styles.progressBarContainer}>
               <View 
                 style={[
                   styles.progressBar, 
-                  { width: `${calculateProgress(todayProgress.water, todayProgress.waterGoal)}%` }
+                  { width: `${calculateProgress(foodSummary?.totalCarbs || 0, nutritionGoals.carbsGoal)}%` }
                 ]} 
               />
             </View>
             <Text style={styles.progressText}>
-              {todayProgress.water} / {todayProgress.waterGoal} glasses
+              {foodSummary?.totalCarbs || 0}g / {nutritionGoals.carbsGoal}g
+            </Text>
+          </View>
+          
+          {/* Fat */}
+          <View style={styles.progressItem}>
+            <View style={styles.progressLabelContainer}>
+              <FontAwesome name="circle" size={16} color={Theme.COLORS.PRIMARY} />
+              <Text style={styles.progressLabel}>Fat</Text>
+            </View>
+            <View style={styles.progressBarContainer}>
+              <View 
+                style={[
+                  styles.progressBar, 
+                  { width: `${calculateProgress(foodSummary?.totalFat || 0, nutritionGoals.fatGoal)}%` }
+                ]} 
+              />
+            </View>
+            <Text style={styles.progressText}>
+              {foodSummary?.totalFat || 0}g / {nutritionGoals.fatGoal}g
             </Text>
           </View>
         </View>
@@ -244,6 +322,36 @@ export default function DashboardScreen() {
         </View>
       </View>
       
+      {/* Exercise Summary */}
+      <View style={styles.sectionContainer}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Today's Exercise</Text>
+          <TouchableOpacity>
+            <Text style={styles.seeAllText}>See All</Text>
+          </TouchableOpacity>
+        </View>
+        
+        <View style={styles.exerciseSummaryContainer}>
+          <View style={styles.exerciseSummaryItem}>
+            <FontAwesome name="heartbeat" size={24} color={Theme.COLORS.INFO} style={styles.exerciseSummaryIcon} />
+            <Text style={styles.exerciseSummaryValue}>{exerciseSummary?.exerciseCount || 0}</Text>
+            <Text style={styles.exerciseSummaryLabel}>Activities</Text>
+          </View>
+          
+          <View style={styles.exerciseSummaryItem}>
+            <FontAwesome name="clock-o" size={24} color={Theme.COLORS.INFO} style={styles.exerciseSummaryIcon} />
+            <Text style={styles.exerciseSummaryValue}>{exerciseSummary?.totalDuration || 0}</Text>
+            <Text style={styles.exerciseSummaryLabel}>Minutes</Text>
+          </View>
+          
+          <View style={styles.exerciseSummaryItem}>
+            <FontAwesome name="fire" size={24} color={Theme.COLORS.INFO} style={styles.exerciseSummaryIcon} />
+            <Text style={styles.exerciseSummaryValue}>{exerciseSummary?.totalCalories || 0}</Text>
+            <Text style={styles.exerciseSummaryLabel}>Calories</Text>
+          </View>
+        </View>
+      </View>
+      
       {/* Recent Activity */}
       <View style={styles.sectionContainer}>
         <View style={styles.sectionHeader}>
@@ -254,33 +362,37 @@ export default function DashboardScreen() {
         </View>
         
         <View style={styles.activityContainer}>
-          {recentActivities.map(activity => (
-            <View key={activity.id} style={styles.activityItem}>
-              <View style={styles.activityIconContainer}>
-                <FontAwesome 
-                  name={activity.type === 'food' ? 'cutlery' : 'heartbeat'} 
-                  size={20} 
-                  color={Theme.COLORS.WHITE} 
+          {recentActivities.length > 0 ? (
+            recentActivities.map(activity => (
+              <View key={activity.id} style={styles.activityItem}>
+                <View style={styles.activityIconContainer}>
+                  <FontAwesome 
+                    name={activity.type === 'food' ? 'cutlery' : 'heartbeat'} 
+                    size={20} 
+                    color={Theme.COLORS.WHITE} 
+                    style={[
+                      styles.activityIcon,
+                      { backgroundColor: activity.type === 'food' ? Theme.COLORS.PRIMARY : Theme.COLORS.INFO }
+                    ]}
+                  />
+                </View>
+                <View style={styles.activityDetails}>
+                  <Text style={styles.activityName}>{activity.name}</Text>
+                  <Text style={styles.activityTime}>{activity.time}</Text>
+                </View>
+                <Text 
                   style={[
-                    styles.activityIcon,
-                    { backgroundColor: activity.type === 'food' ? Theme.COLORS.PRIMARY : Theme.COLORS.INFO }
+                    styles.activityCalories,
+                    { color: activity.calories > 0 ? Theme.COLORS.DEFAULT : Theme.COLORS.SUCCESS }
                   ]}
-                />
+                >
+                  {activity.calories > 0 ? '+' : ''}{Math.abs(activity.calories)} cal
+                </Text>
               </View>
-              <View style={styles.activityDetails}>
-                <Text style={styles.activityName}>{activity.name}</Text>
-                <Text style={styles.activityTime}>{activity.time}</Text>
-              </View>
-              <Text 
-                style={[
-                  styles.activityCalories,
-                  { color: activity.calories > 0 ? Theme.COLORS.DEFAULT : Theme.COLORS.SUCCESS }
-                ]}
-              >
-                {activity.calories > 0 ? '+' : ''}{activity.calories} cal
-              </Text>
-            </View>
-          ))}
+            ))
+          ) : (
+            <Text style={styles.emptyActivityText}>No activities logged today</Text>
+          )}
         </View>
       </View>
       
@@ -315,6 +427,12 @@ const styles = StyleSheet.create({
     marginTop: 15,
     fontSize: 16,
     color: Theme.COLORS.DEFAULT,
+  },
+  emptyActivityText: {
+    textAlign: 'center',
+    padding: 15,
+    color: Theme.COLORS.MUTED,
+    fontStyle: 'italic',
   },
   errorContainer: {
     flex: 1,
@@ -513,6 +631,30 @@ const styles = StyleSheet.create({
   activityCalories: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  exerciseSummaryContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: '#f9f9f9',
+    borderRadius: 8,
+    padding: 15,
+  },
+  exerciseSummaryItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  exerciseSummaryIcon: {
+    marginBottom: 8,
+  },
+  exerciseSummaryValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: Theme.COLORS.DEFAULT,
+    marginBottom: 4,
+  },
+  exerciseSummaryLabel: {
+    fontSize: 12,
+    color: Theme.COLORS.MUTED,
   },
   recommendationsContainer: {
     marginBottom: 10,

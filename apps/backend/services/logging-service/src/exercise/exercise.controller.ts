@@ -17,6 +17,7 @@ import { ExerciseService } from './exercise.service';
 import { CreateExerciseLogDto } from './dto/create-exercise-log.dto';
 import { UpdateExerciseLogDto } from './dto/update-exercise-log.dto';
 import { ExerciseLogResponseDto } from './dto/exercise-log-response.dto';
+import { ExerciseDailySummaryDto, ExerciseWeeklySummaryDto } from './dto/exercise-daily-summary.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 
@@ -89,5 +90,47 @@ export class ExerciseController {
     @CurrentUser() user: { userId: string },
   ): Promise<void> {
     return this.exerciseService.remove(id, user.userId);
+  }
+
+  @Get('summary/daily')
+  @ApiOperation({ summary: 'Get daily exercise summary' })
+  @ApiResponse({ status: 200, description: 'Return daily exercise summary', type: ExerciseDailySummaryDto })
+  getDailySummary(
+    @CurrentUser() user: { userId: string },
+    @Query('date') date?: string,
+  ): Promise<ExerciseDailySummaryDto> {
+    const summaryDate = date ? new Date(date) : new Date();
+    return this.exerciseService.getDailySummary(user.userId, summaryDate);
+  }
+
+  @Get('summary/current-day')
+  @ApiOperation({ summary: 'Get current day exercise summary' })
+  @ApiResponse({ status: 200, description: 'Return current day exercise summary', type: ExerciseDailySummaryDto })
+  getCurrentDaySummary(
+    @CurrentUser() user: { userId: string },
+  ): Promise<ExerciseDailySummaryDto> {
+    return this.exerciseService.getCurrentDaySummary(user.userId);
+  }
+
+  @Get('summary/weekly')
+  @ApiOperation({ summary: 'Get weekly exercise summary' })
+  @ApiResponse({ status: 200, description: 'Return weekly exercise summary', type: ExerciseWeeklySummaryDto })
+  getWeeklySummary(
+    @CurrentUser() user: { userId: string },
+    @Query('startDate') startDate?: string,
+  ): Promise<ExerciseWeeklySummaryDto> {
+    const summaryStartDate = startDate ? new Date(startDate) : undefined;
+    return summaryStartDate 
+      ? this.exerciseService.getWeeklySummary(user.userId, summaryStartDate)
+      : this.exerciseService.getCurrentWeekSummary(user.userId);
+  }
+
+  @Get('summary/current-week')
+  @ApiOperation({ summary: 'Get current week exercise summary' })
+  @ApiResponse({ status: 200, description: 'Return current week exercise summary', type: ExerciseWeeklySummaryDto })
+  getCurrentWeekSummary(
+    @CurrentUser() user: { userId: string },
+  ): Promise<ExerciseWeeklySummaryDto> {
+    return this.exerciseService.getCurrentWeekSummary(user.userId);
   }
 }

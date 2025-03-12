@@ -5,6 +5,7 @@ import { ExerciseLog } from './entities/exercise-log.entity';
 import { CreateExerciseLogDto } from './dto/create-exercise-log.dto';
 import { UpdateExerciseLogDto } from './dto/update-exercise-log.dto';
 import { ExerciseLogResponseDto } from './dto/exercise-log-response.dto';
+import { ExerciseDailySummaryDto, ExerciseWeeklySummaryDto } from './dto/exercise-daily-summary.dto';
 import { plainToInstance } from 'class-transformer';
 
 @Injectable()
@@ -124,5 +125,84 @@ export class ExerciseService {
     }
   }
 
-  // TODO: Add methods for daily and weekly summaries
+  async getDailySummary(userId: string, date: Date): Promise<ExerciseDailySummaryDto> {
+    // Create start and end date for the given day
+    const startDate = new Date(date);
+    startDate.setHours(0, 0, 0, 0);
+    
+    const endDate = new Date(date);
+    endDate.setHours(23, 59, 59, 999);
+    
+    // Get all exercise logs for the day
+    const exerciseLogs = await this.exerciseLogRepository.find({
+      where: {
+        userId,
+        time: Between(startDate, endDate),
+      },
+    });
+    
+    // Calculate totals
+    const totalCalories = exerciseLogs.reduce((sum, log) => sum + log.calories, 0);
+    const totalDuration = exerciseLogs.reduce((sum, log) => sum + log.duration, 0);
+    
+    // Create and return the summary
+    const summary = new ExerciseDailySummaryDto({
+      date: startDate.toISOString().split('T')[0], // Format as YYYY-MM-DD
+      totalCalories,
+      totalDuration,
+      exerciseCount: exerciseLogs.length,
+    });
+    
+    return summary;
+  }
+  
+  async getWeeklySummary(userId: string, startDate: Date): Promise<ExerciseWeeklySummaryDto> {
+    // Create start and end date for the week
+    const start = new Date(startDate);
+    start.setHours(0, 0, 0, 0);
+    
+    const end = new Date(startDate);
+    end.setDate(end.getDate() + 6); // 7 days total (including start date)
+    end.setHours(23, 59, 59, 999);
+    
+    // Get daily summaries for each day in the week
+    const dailySummaries: ExerciseDailySummaryDto[] = [];
+    
+    for (let i = 0; i < 7; i++) {
+      const currentDate = new Date(start);
+      currentDate.setDate(currentDate.getDate() + i);
+      const summary = await this.getDailySummary(userId, currentDate);
+      dailySummaries.push(summary);
+    }
+    
+    // Calculate averages
+    const averageCalories = dailySummaries.reduce((sum, day) => sum + day.totalCalories, 0) / 7;
+    const averageDuration = dailySummaries.reduce((sum, day) => sum + day.totalDuration, 0) / 7;
+    
+    // Create and return the summary
+    const summary = new ExerciseWeeklySummaryDto({
+      startDate: start.toISOString().split('T')[0],
+      endDate: end.toISOString().split('T')[0],
+      dailySummaries,
+      averageCalories,
+      averageDuration,
+    });
+    
+    return summary;
+  }
+  
+  async getCurrentDaySummary(userId: string): Promise<ExerciseDailySummaryDto> {
+    const today = new Date();
+    return this.getDailySummary(userId, today);
+  }
+  
+  async getCurrentWeekSummary(userId: string): Promise<ExerciseWeeklySummaryDto> {
+    // Get the start of the current week (Sunday)
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - dayOfWeek); // Go back to Sunday
+    
+    return this.getWeeklySummary(userId, startOfWeek);
+  }
 }

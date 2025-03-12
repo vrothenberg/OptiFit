@@ -17,6 +17,7 @@ import { FoodService } from './food.service';
 import { CreateFoodLogDto } from './dto/create-food-log.dto';
 import { UpdateFoodLogDto } from './dto/update-food-log.dto';
 import { FoodLogResponseDto } from './dto/food-log-response.dto';
+import { FoodDailySummaryDto, FoodWeeklySummaryDto } from './dto/food-daily-summary.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 
@@ -91,5 +92,47 @@ export class FoodController {
     @CurrentUser() user: { userId: string },
   ): Promise<void> {
     return this.foodService.remove(id, user.userId);
+  }
+
+  @Get('summary/daily')
+  @ApiOperation({ summary: 'Get daily food summary' })
+  @ApiResponse({ status: 200, description: 'Return daily food summary', type: FoodDailySummaryDto })
+  getDailySummary(
+    @CurrentUser() user: { userId: string },
+    @Query('date') date?: string,
+  ): Promise<FoodDailySummaryDto> {
+    const summaryDate = date ? new Date(date) : new Date();
+    return this.foodService.getDailySummary(user.userId, summaryDate);
+  }
+
+  @Get('summary/current-day')
+  @ApiOperation({ summary: 'Get current day food summary' })
+  @ApiResponse({ status: 200, description: 'Return current day food summary', type: FoodDailySummaryDto })
+  getCurrentDaySummary(
+    @CurrentUser() user: { userId: string },
+  ): Promise<FoodDailySummaryDto> {
+    return this.foodService.getCurrentDaySummary(user.userId);
+  }
+
+  @Get('summary/weekly')
+  @ApiOperation({ summary: 'Get weekly food summary' })
+  @ApiResponse({ status: 200, description: 'Return weekly food summary', type: FoodWeeklySummaryDto })
+  getWeeklySummary(
+    @CurrentUser() user: { userId: string },
+    @Query('startDate') startDate?: string,
+  ): Promise<FoodWeeklySummaryDto> {
+    const summaryStartDate = startDate ? new Date(startDate) : undefined;
+    return summaryStartDate 
+      ? this.foodService.getWeeklySummary(user.userId, summaryStartDate)
+      : this.foodService.getCurrentWeekSummary(user.userId);
+  }
+
+  @Get('summary/current-week')
+  @ApiOperation({ summary: 'Get current week food summary' })
+  @ApiResponse({ status: 200, description: 'Return current week food summary', type: FoodWeeklySummaryDto })
+  getCurrentWeekSummary(
+    @CurrentUser() user: { userId: string },
+  ): Promise<FoodWeeklySummaryDto> {
+    return this.foodService.getCurrentWeekSummary(user.userId);
   }
 }

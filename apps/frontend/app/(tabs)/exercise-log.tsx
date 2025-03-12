@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   View, 
@@ -7,13 +7,26 @@ import {
   TouchableOpacity, 
   TextInput,
   Modal,
-  FlatList
+  FlatList,
+  ActivityIndicator,
+  Alert
 } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 
 import Theme from '@/constants/Theme';
+import { 
+  getExerciseLogs, 
+  createExerciseLog, 
+  updateExerciseLog, 
+  deleteExerciseLog 
+} from '@/services/loggingService';
+import { 
+  ExerciseLog, 
+  ExerciseLogsResponse, 
+  CreateExerciseLogRequest 
+} from '@/services/api/types';
 
-// Mock data for exercise types
+// Common exercise types for quick selection
 const EXERCISE_TYPES = [
   { id: 1, name: 'Running', icon: 'running', category: 'Cardio', caloriesPerMinute: 10 },
   { id: 2, name: 'Walking', icon: 'walking', category: 'Cardio', caloriesPerMinute: 5 },
@@ -27,33 +40,6 @@ const EXERCISE_TYPES = [
   { id: 10, name: 'Tennis', icon: 'table-tennis', category: 'Sports', caloriesPerMinute: 7 },
 ];
 
-// Mock data for exercise history
-const EXERCISE_HISTORY = [
-  { 
-    id: 1, 
-    date: 'Today', 
-    exercises: [
-      { id: 1, name: 'Morning Run', type: 'Running', time: '7:30 AM', duration: 30, calories: 300 },
-      { id: 2, name: 'Afternoon Yoga', type: 'Yoga', time: '5:30 PM', duration: 45, calories: 180 },
-    ]
-  },
-  { 
-    id: 2, 
-    date: 'Yesterday', 
-    exercises: [
-      { id: 1, name: 'Weight Training', type: 'Weight Training', time: '6:45 AM', duration: 60, calories: 420 },
-      { id: 2, name: 'Evening Walk', type: 'Walking', time: '7:30 PM', duration: 40, calories: 200 },
-    ]
-  },
-  { 
-    id: 3, 
-    date: 'March 2, 2025', 
-    exercises: [
-      { id: 1, name: 'Swimming', type: 'Swimming', time: '8:00 AM', duration: 45, calories: 405 },
-    ]
-  },
-];
-
 export default function ExerciseLogScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
@@ -61,6 +47,43 @@ export default function ExerciseLogScreen() {
   const [exerciseName, setExerciseName] = useState('');
   const [duration, setDuration] = useState('30');
   const [intensity, setIntensity] = useState('Medium');
+  
+  // API-related state
+  const [exerciseLogs, setExerciseLogs] = useState<ExerciseLog[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Fetch exercise logs when component mounts
+  useEffect(() => {
+    fetchExerciseLogs();
+  }, []);
+  
+  // Fetch exercise logs from API
+  const fetchExerciseLogs = async () => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      // Get today's date and a week ago for filtering
+      const today = new Date();
+      const startOfWeek = new Date(today);
+      startOfWeek.setDate(today.getDate() - 7); // Get logs from the past week
+      
+      // Format dates as ISO strings
+      const endDate = today.toISOString();
+      const startDate = startOfWeek.toISOString();
+      
+      // Fetch exercise logs from API
+      const response = await getExerciseLogs({ startDate, endDate, limit: 50 });
+      setExerciseLogs(response.data);
+    } catch (error: any) {
+      console.error('Error fetching exercise logs:', error);
+      setError('Failed to load exercise logs. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
   
   // Filter exercise types based on search query
   const filteredExerciseTypes = EXERCISE_TYPES.filter(item => 
@@ -75,14 +98,47 @@ export default function ExerciseLogScreen() {
   };
   
   // Handle adding exercise to log
-  const handleAddExercise = () => {
-    // In a real app, this would add the exercise to the user's log
-    // For now, we'll just close the modal
-    setShowAddModal(false);
-    setSelectedExercise(null);
-    setExerciseName('');
-    setDuration('30');
-    setIntensity('Medium');
+  const handleAddExercise = async () => {
+    if (!selectedExercise) return;
+    
+    setIsSubmitting(true);
+    
+    try {
+      // Calculate calories based on exercise type, duration, and intensity
+      let intensityMultiplier = 1;
+      if (intensity === 'Low') intensityMultiplier = 0.8;
+      if (intensity === 'High') intensityMultiplier = 1.2;
+      
+      const caloriesBurned = Math.round(selectedExercise.caloriesPerMinute * parseInt(duration) * intensityMultiplier);
+      
+      // Create exercise log request
+      const exerciseLogRequest: CreateExerciseLogRequest = {
+        name: exerciseName,
+        type: selectedExercise.name,
+        duration: parseInt(duration),
+        intensity: intensity,
+        calories: caloriesBurned,
+        time: new Date().toISOString(),
+      };
+      
+      // Call API to create exercise log
+      await createExerciseLog(exerciseLogRequest);
+      
+      // Refresh exercise logs
+      await fetchExerciseLogs();
+      
+      // Close modal and reset state
+      setShowAddModal(false);
+      setSelectedExercise(null);
+      setExerciseName('');
+      setDuration('30');
+      setIntensity('Medium');
+    } catch (error: any) {
+      console.error('Error adding exercise log:', error);
+      Alert.alert('Error', 'Failed to add exercise to log. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
   
   // Calculate calories burned based on exercise type, duration, and intensity
@@ -94,6 +150,74 @@ export default function ExerciseLogScreen() {
     if (intensity === 'High') intensityMultiplier = 1.2;
     
     return Math.round(selectedExercise.caloriesPerMinute * parseInt(duration) * intensityMultiplier);
+  };
+  
+  // Helper function to format date for display
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    // Check if the date is today
+    if (date.toDateString() === today.toDateString()) {
+      return 'Today';
+    }
+    
+    // Check if the date is yesterday
+    if (date.toDateString() === yesterday.toDateString()) {
+      return 'Yesterday';
+    }
+    
+    // Otherwise, return the formatted date
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+  
+  // Helper function to format time for display
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+  
+  // Group exercise logs by date
+  const groupedExerciseLogs = () => {
+    if (!exerciseLogs || exerciseLogs.length === 0) {
+      return [];
+    }
+    
+    // Group logs by date
+    const logsByDate: Record<string, ExerciseLog[]> = {};
+    
+    exerciseLogs.forEach(log => {
+      const dateKey = formatDate(log.time);
+      if (!logsByDate[dateKey]) {
+        logsByDate[dateKey] = [];
+      }
+      logsByDate[dateKey].push(log);
+    });
+    
+    // Convert to array and sort by date (most recent first)
+    const sortedDates = Object.keys(logsByDate).sort((a, b) => {
+      if (a === 'Today') return -1;
+      if (b === 'Today') return 1;
+      if (a === 'Yesterday') return -1;
+      if (b === 'Yesterday') return 1;
+      return new Date(b).getTime() - new Date(a).getTime();
+    });
+    
+    // Format for display
+    return sortedDates.map((date, index) => ({
+      id: index.toString(),
+      date,
+      exercises: logsByDate[date].map(log => ({
+        id: log.id,
+        name: log.name,
+        type: log.type,
+        time: formatTime(log.time),
+        duration: log.duration,
+        calories: log.calories
+      }))
+    }));
   };
 
   return (
@@ -111,51 +235,79 @@ export default function ExerciseLogScreen() {
       </View>
       
       {/* Exercise History */}
-      <ScrollView style={styles.scrollContainer}>
-        {EXERCISE_HISTORY.map(day => (
-          <View key={day.id} style={styles.dayContainer}>
-            <Text style={styles.dayTitle}>{day.date}</Text>
-            
-            {day.exercises.map(exercise => (
-              <View key={exercise.id} style={styles.exerciseContainer}>
-                <View style={styles.exerciseHeader}>
-                  <View style={styles.exerciseIconContainer}>
-                    <FontAwesome 
-                      name="heartbeat" 
-                      size={20} 
-                      color={Theme.COLORS.WHITE} 
-                      style={styles.exerciseIcon}
-                    />
-                  </View>
-                  <View style={styles.exerciseDetails}>
-                    <Text style={styles.exerciseName}>{exercise.name}</Text>
-                    <Text style={styles.exerciseType}>{exercise.type}</Text>
-                  </View>
-                  <View style={styles.exerciseStats}>
-                    <Text style={styles.exerciseTime}>{exercise.time}</Text>
-                    <Text style={styles.exerciseCalories}>-{exercise.calories} cal</Text>
-                  </View>
-                </View>
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Theme.COLORS.PRIMARY} />
+          <Text style={styles.loadingText}>Loading exercise logs...</Text>
+        </View>
+      ) : error ? (
+        <View style={styles.errorContainer}>
+          <FontAwesome name="exclamation-circle" size={40} color={Theme.COLORS.ERROR} />
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity 
+            style={styles.retryButton}
+            onPress={fetchExerciseLogs}
+          >
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <ScrollView style={styles.scrollContainer}>
+          {groupedExerciseLogs().length > 0 ? (
+            groupedExerciseLogs().map(day => (
+              <View key={day.id} style={styles.dayContainer}>
+                <Text style={styles.dayTitle}>{day.date}</Text>
                 
-                <View style={styles.exerciseFooter}>
-                  <View style={styles.exerciseMetric}>
-                    <FontAwesome name="clock-o" size={16} color={Theme.COLORS.MUTED} />
-                    <Text style={styles.exerciseMetricText}>{exercise.duration} min</Text>
+                {day.exercises.map(exercise => (
+                  <View key={exercise.id} style={styles.exerciseContainer}>
+                    <View style={styles.exerciseHeader}>
+                      <View style={styles.exerciseIconContainer}>
+                        <FontAwesome 
+                          name="heartbeat" 
+                          size={20} 
+                          color={Theme.COLORS.WHITE} 
+                          style={styles.exerciseIcon}
+                        />
+                      </View>
+                      <View style={styles.exerciseDetails}>
+                        <Text style={styles.exerciseName}>{exercise.name}</Text>
+                        <Text style={styles.exerciseType}>{exercise.type}</Text>
+                      </View>
+                      <View style={styles.exerciseStats}>
+                        <Text style={styles.exerciseTime}>{exercise.time}</Text>
+                        <Text style={styles.exerciseCalories}>-{exercise.calories} cal</Text>
+                      </View>
+                    </View>
+                    
+                    <View style={styles.exerciseFooter}>
+                      <View style={styles.exerciseMetric}>
+                        <FontAwesome name="clock-o" size={16} color={Theme.COLORS.MUTED} />
+                        <Text style={styles.exerciseMetricText}>{exercise.duration} min</Text>
+                      </View>
+                      <View style={styles.exerciseMetric}>
+                        <FontAwesome name="fire" size={16} color={Theme.COLORS.MUTED} />
+                        <Text style={styles.exerciseMetricText}>{exercise.calories} cal</Text>
+                      </View>
+                      <View style={styles.exerciseMetric}>
+                        <FontAwesome name="bolt" size={16} color={Theme.COLORS.MUTED} />
+                        <Text style={styles.exerciseMetricText}>{Math.round(exercise.calories / exercise.duration)} cal/min</Text>
+                      </View>
+                    </View>
                   </View>
-                  <View style={styles.exerciseMetric}>
-                    <FontAwesome name="fire" size={16} color={Theme.COLORS.MUTED} />
-                    <Text style={styles.exerciseMetricText}>{exercise.calories} cal</Text>
-                  </View>
-                  <View style={styles.exerciseMetric}>
-                    <FontAwesome name="bolt" size={16} color={Theme.COLORS.MUTED} />
-                    <Text style={styles.exerciseMetricText}>{Math.round(exercise.calories / exercise.duration)} cal/min</Text>
-                  </View>
-                </View>
+                ))}
               </View>
-            ))}
-          </View>
-        ))}
-      </ScrollView>
+            ))
+          ) : (
+            <View style={styles.emptyStateContainer}>
+              <FontAwesome name="heartbeat" size={50} color={Theme.COLORS.MUTED} />
+              <Text style={styles.emptyStateText}>No exercise logs yet</Text>
+              <Text style={styles.emptyStateSubtext}>
+                Start tracking your workouts by tapping the "Add Exercise" button above.
+              </Text>
+            </View>
+          )}
+        </ScrollView>
+      )}
       
       {/* Add Exercise Modal */}
       <Modal
@@ -242,13 +394,19 @@ export default function ExerciseLogScreen() {
                 <TouchableOpacity 
                   style={styles.addExerciseButton}
                   onPress={handleAddExercise}
+                  disabled={isSubmitting}
                 >
-                  <Text style={styles.addExerciseButtonText}>Add to Log</Text>
+                  {isSubmitting ? (
+                    <ActivityIndicator color={Theme.COLORS.WHITE} />
+                  ) : (
+                    <Text style={styles.addExerciseButtonText}>Add to Log</Text>
+                  )}
                 </TouchableOpacity>
                 
                 <TouchableOpacity 
                   style={styles.backButton}
                   onPress={() => setSelectedExercise(null)}
+                  disabled={isSubmitting}
                 >
                   <Text style={styles.backButtonText}>Back to Exercise Types</Text>
                 </TouchableOpacity>
@@ -329,6 +487,41 @@ const styles = StyleSheet.create({
     color: Theme.COLORS.WHITE,
     fontWeight: '600',
     marginLeft: 5,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: Theme.COLORS.MUTED,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    marginTop: 10,
+    marginBottom: 20,
+    fontSize: 16,
+    color: Theme.COLORS.ERROR,
+    textAlign: 'center',
+  },
+  retryButton: {
+    backgroundColor: Theme.COLORS.PRIMARY,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: Theme.COLORS.WHITE,
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   scrollContainer: {
     flex: 1,
@@ -413,6 +606,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Theme.COLORS.DEFAULT,
     marginLeft: 5,
+  },
+  emptyStateContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+    marginTop: 40,
+  },
+  emptyStateText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Theme.COLORS.DEFAULT,
+    marginTop: 20,
+    marginBottom: 10,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: Theme.COLORS.MUTED,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   modalContainer: {
     flex: 1,

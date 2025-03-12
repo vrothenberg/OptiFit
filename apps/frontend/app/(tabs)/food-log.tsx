@@ -26,8 +26,8 @@ import {
   CreateFoodLogRequest 
 } from '@/services/api/types';
 
-// Mock data for food items
-const FOOD_ITEMS = [
+// Common food items for quick selection
+const COMMON_FOOD_ITEMS = [
   { id: 1, name: 'Oatmeal', calories: 150, protein: 6, carbs: 27, fat: 2.5 },
   { id: 2, name: 'Scrambled Eggs', calories: 140, protein: 12, carbs: 1, fat: 10 },
   { id: 3, name: 'Banana', calories: 105, protein: 1.3, carbs: 27, fat: 0.4 },
@@ -40,49 +40,20 @@ const FOOD_ITEMS = [
   { id: 10, name: 'Avocado', calories: 234, protein: 2.9, carbs: 12, fat: 21 },
 ];
 
-// Mock data for meal history
-const MEAL_HISTORY = [
-  { 
-    id: 1, 
-    date: 'Today', 
-    meals: [
-      { id: 1, name: 'Breakfast', time: '7:30 AM', items: [
-        { id: 1, name: 'Oatmeal', quantity: 1, calories: 150 },
-        { id: 2, name: 'Banana', quantity: 1, calories: 105 },
-      ]},
-      { id: 2, name: 'Lunch', time: '12:45 PM', items: [
-        { id: 1, name: 'Chicken Breast', quantity: 1, calories: 165 },
-        { id: 2, name: 'Brown Rice', quantity: 1, calories: 215 },
-        { id: 3, name: 'Broccoli', quantity: 1, calories: 55 },
-      ]},
-    ]
-  },
-  { 
-    id: 2, 
-    date: 'Yesterday', 
-    meals: [
-      { id: 1, name: 'Breakfast', time: '8:00 AM', items: [
-        { id: 1, name: 'Scrambled Eggs', quantity: 2, calories: 280 },
-        { id: 2, name: 'Avocado', quantity: 0.5, calories: 117 },
-      ]},
-      { id: 2, name: 'Lunch', time: '1:15 PM', items: [
-        { id: 1, name: 'Salmon', quantity: 1, calories: 206 },
-        { id: 2, name: 'Sweet Potato', quantity: 1, calories: 112 },
-      ]},
-      { id: 3, name: 'Dinner', time: '7:00 PM', items: [
-        { id: 1, name: 'Chicken Breast', quantity: 1, calories: 165 },
-        { id: 2, name: 'Greek Yogurt', quantity: 1, calories: 100 },
-      ]},
-    ]
-  },
-];
+// Meal types for categorizing food logs
+const MEAL_TYPES = {
+  BREAKFAST: 'Breakfast',
+  LUNCH: 'Lunch',
+  DINNER: 'Dinner',
+  SNACK: 'Snack'
+};
 
 export default function FoodLogScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedFood, setSelectedFood] = useState<any>(null);
   const [quantity, setQuantity] = useState('1');
-  const [mealType, setMealType] = useState('Breakfast');
+  const [mealType, setMealType] = useState(MEAL_TYPES.BREAKFAST);
   
   // API-related state
   const [foodLogs, setFoodLogs] = useState<FoodLog[]>([]);
@@ -103,15 +74,15 @@ export default function FoodLogScreen() {
     try {
       // Get today's date and yesterday's date for filtering
       const today = new Date();
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
+      const startOfWeek = new Date(today);
+      startOfWeek.setDate(today.getDate() - 7); // Get logs from the past week
       
       // Format dates as ISO strings
       const endDate = today.toISOString();
-      const startDate = yesterday.toISOString();
+      const startDate = startOfWeek.toISOString();
       
       // Fetch food logs from API
-      const response = await getFoodLogs({ startDate, endDate });
+      const response = await getFoodLogs({ startDate, endDate, limit: 50 });
       setFoodLogs(response.data);
     } catch (error: any) {
       console.error('Error fetching food logs:', error);
@@ -122,7 +93,7 @@ export default function FoodLogScreen() {
   };
   
   // Filter food items based on search query
-  const filteredFoodItems = FOOD_ITEMS.filter(item => 
+  const filteredFoodItems = COMMON_FOOD_ITEMS.filter((item: any) => 
     item.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
   
@@ -168,16 +139,130 @@ export default function FoodLogScreen() {
     }
   };
   
-  // Calculate total calories for a meal
-  const calculateMealCalories = (items: any[]) => {
-    return items.reduce((total, item) => total + (item.calories * item.quantity), 0);
+  // Helper function to format date for display
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    // Check if the date is today
+    if (date.toDateString() === today.toDateString()) {
+      return 'Today';
+    }
+    
+    // Check if the date is yesterday
+    if (date.toDateString() === yesterday.toDateString()) {
+      return 'Yesterday';
+    }
+    
+    // Otherwise, return the formatted date
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+  
+  // Helper function to format time for display
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+  
+  // Helper function to guess meal type based on time
+  const guessMealType = (dateString: string) => {
+    const date = new Date(dateString);
+    const hour = date.getHours();
+    
+    if (hour >= 5 && hour < 10) {
+      return MEAL_TYPES.BREAKFAST;
+    } else if (hour >= 10 && hour < 15) {
+      return MEAL_TYPES.LUNCH;
+    } else if (hour >= 15 && hour < 21) {
+      return MEAL_TYPES.DINNER;
+    } else {
+      return MEAL_TYPES.SNACK;
+    }
   };
   
   // Group food logs by date and meal type
   const groupedFoodLogs = () => {
-    // For now, we'll continue using the mock data
-    // In a real app, this would process the foodLogs from the API
-    return MEAL_HISTORY;
+    if (!foodLogs || foodLogs.length === 0) {
+      return [];
+    }
+    
+    // Group logs by date
+    const logsByDate: Record<string, FoodLog[]> = {};
+    
+    foodLogs.forEach(log => {
+      const dateKey = formatDate(log.time);
+      if (!logsByDate[dateKey]) {
+        logsByDate[dateKey] = [];
+      }
+      logsByDate[dateKey].push(log);
+    });
+    
+    // Convert to array and sort by date (most recent first)
+    const sortedDates = Object.keys(logsByDate).sort((a, b) => {
+      if (a === 'Today') return -1;
+      if (b === 'Today') return 1;
+      if (a === 'Yesterday') return -1;
+      if (b === 'Yesterday') return 1;
+      return new Date(b).getTime() - new Date(a).getTime();
+    });
+    
+    // For each date, group logs by meal type
+    return sortedDates.map((date, dateIndex) => {
+      const logsForDate = logsByDate[date];
+      
+      // Group logs by meal type
+      const logsByMealType: Record<string, FoodLog[]> = {};
+      
+      logsForDate.forEach(log => {
+        const mealType = guessMealType(log.time);
+        if (!logsByMealType[mealType]) {
+          logsByMealType[mealType] = [];
+        }
+        logsByMealType[mealType].push(log);
+      });
+      
+      // Sort meal types in chronological order
+      const mealOrder = [MEAL_TYPES.BREAKFAST, MEAL_TYPES.LUNCH, MEAL_TYPES.DINNER, MEAL_TYPES.SNACK];
+      const sortedMealTypes = Object.keys(logsByMealType).sort(
+        (a, b) => mealOrder.indexOf(a) - mealOrder.indexOf(b)
+      );
+      
+      // Format meals for display
+      const meals = sortedMealTypes.map((mealType, mealIndex) => {
+        const logsForMeal = logsByMealType[mealType];
+        
+        // Sort logs by time
+        logsForMeal.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+        
+        // Format logs as items
+        const items = logsForMeal.map((log, logIndex) => ({
+          id: log.id,
+          name: log.foodName,
+          quantity: log.amount,
+          calories: log.calories
+        }));
+        
+        return {
+          id: `${dateIndex}-${mealIndex}`,
+          name: mealType,
+          time: formatTime(logsForMeal[0].time),
+          items
+        };
+      });
+      
+      return {
+        id: dateIndex.toString(),
+        date,
+        meals
+      };
+    });
+  };
+  
+  // Calculate total calories for a meal
+  const calculateMealCalories = (items: any[]) => {
+    return items.reduce((total, item) => total + (item.calories), 0);
   };
 
   return (
@@ -213,37 +298,47 @@ export default function FoodLogScreen() {
         </View>
       ) : (
         <ScrollView style={styles.scrollContainer}>
-          {groupedFoodLogs().map(day => (
-            <View key={day.id} style={styles.dayContainer}>
-              <Text style={styles.dayTitle}>{day.date}</Text>
-              
-              {day.meals.map(meal => (
-                <View key={meal.id} style={styles.mealContainer}>
-                  <View style={styles.mealHeader}>
-                    <View>
-                      <Text style={styles.mealName}>{meal.name}</Text>
-                      <Text style={styles.mealTime}>{meal.time}</Text>
-                    </View>
-                    <View>
-                      <Text style={styles.mealCalories}>
-                        {calculateMealCalories(meal.items)} cal
-                      </Text>
-                    </View>
-                  </View>
-                  
-                  <View style={styles.mealItems}>
-                    {meal.items.map(item => (
-                      <View key={item.id} style={styles.foodItem}>
-                        <Text style={styles.foodName}>{item.name}</Text>
-                        <Text style={styles.foodQuantity}>x{item.quantity}</Text>
-                        <Text style={styles.foodCalories}>{item.calories * item.quantity} cal</Text>
+          {groupedFoodLogs().length > 0 ? (
+            groupedFoodLogs().map(day => (
+              <View key={day.id} style={styles.dayContainer}>
+                <Text style={styles.dayTitle}>{day.date}</Text>
+                
+                {day.meals.map(meal => (
+                  <View key={meal.id} style={styles.mealContainer}>
+                    <View style={styles.mealHeader}>
+                      <View>
+                        <Text style={styles.mealName}>{meal.name}</Text>
+                        <Text style={styles.mealTime}>{meal.time}</Text>
                       </View>
-                    ))}
+                      <View>
+                        <Text style={styles.mealCalories}>
+                          {calculateMealCalories(meal.items)} cal
+                        </Text>
+                      </View>
+                    </View>
+                    
+                    <View style={styles.mealItems}>
+                      {meal.items.map(item => (
+                        <View key={item.id} style={styles.foodItem}>
+                          <Text style={styles.foodName}>{item.name}</Text>
+                          <Text style={styles.foodQuantity}>x{item.quantity}</Text>
+                          <Text style={styles.foodCalories}>{item.calories} cal</Text>
+                        </View>
+                      ))}
+                    </View>
                   </View>
-                </View>
-              ))}
+                ))}
+              </View>
+            ))
+          ) : (
+            <View style={styles.emptyStateContainer}>
+              <FontAwesome name="cutlery" size={50} color={Theme.COLORS.MUTED} />
+              <Text style={styles.emptyStateText}>No food logs yet</Text>
+              <Text style={styles.emptyStateSubtext}>
+                Start tracking your meals by tapping the "Add Food" button above.
+              </Text>
             </View>
-          ))}
+          )}
         </ScrollView>
       )}
       
@@ -266,7 +361,7 @@ export default function FoodLogScreen() {
             <View style={styles.mealTypeContainer}>
               <Text style={styles.inputLabel}>Meal Type</Text>
               <View style={styles.mealTypeButtons}>
-                {['Breakfast', 'Lunch', 'Dinner', 'Snack'].map(type => (
+                {[MEAL_TYPES.BREAKFAST, MEAL_TYPES.LUNCH, MEAL_TYPES.DINNER, MEAL_TYPES.SNACK].map(type => (
                   <TouchableOpacity
                     key={type}
                     style={[
@@ -533,6 +628,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: Theme.COLORS.DEFAULT,
+  },
+  emptyStateContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+    marginTop: 40,
+  },
+  emptyStateText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Theme.COLORS.DEFAULT,
+    marginTop: 20,
+    marginBottom: 10,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: Theme.COLORS.MUTED,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   modalContainer: {
     flex: 1,
