@@ -8,8 +8,7 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
-  Alert
+  ActivityIndicator
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link, Stack, useRouter } from 'expo-router';
@@ -28,6 +27,20 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [generalError, setGeneralError] = useState<string | null>(null);
+  
+  // Clear errors when inputs change
+  useEffect(() => {
+    setEmailError(null);
+    setGeneralError(null);
+  }, [email]);
+  
+  useEffect(() => {
+    setPasswordError(null);
+    setGeneralError(null);
+  }, [password]);
   
   // Redirect to tabs if already authenticated
   useEffect(() => {
@@ -37,9 +50,19 @@ export default function LoginScreen() {
   }, [isAuthenticated, router]);
 
   const handleLogin = async () => {
+    // Reset all errors
+    setEmailError(null);
+    setPasswordError(null);
+    setGeneralError(null);
+    
     // Basic validation
-    if (!email || !password) {
-      Alert.alert('Error', 'Please enter both email and password');
+    if (!email) {
+      setEmailError('Email is required');
+      return;
+    }
+    
+    if (!password) {
+      setPasswordError('Password is required');
       return;
     }
 
@@ -61,8 +84,25 @@ export default function LoginScreen() {
       // Navigation will happen automatically via the useEffect above
     } catch (error: any) {
       // Handle login error
-      const errorMessage = error.response?.data?.message || 'Login failed. Please try again.';
-      Alert.alert('Login Error', errorMessage);
+      console.log('Login error:', error);
+      
+      // Extract specific error message from the response if available
+      if (error && error.message) {
+        const errorMessage = error.message;
+        
+        // Check for specific error types
+        if (errorMessage.toLowerCase().includes('email')) {
+          setEmailError(errorMessage);
+        } else if (errorMessage.toLowerCase().includes('password')) {
+          setPasswordError(errorMessage);
+        } else if (errorMessage.toLowerCase().includes('credentials')) {
+          setPasswordError(errorMessage);
+        } else {
+          setGeneralError(errorMessage);
+        }
+      } else {
+        setGeneralError('Login failed. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -82,7 +122,7 @@ export default function LoginScreen() {
         router.push('/(tabs)');
       }, 1500);
     } catch (error: any) {
-      Alert.alert('Google Login Error', 'Failed to login with Google. Please try again.');
+      setGeneralError('Failed to login with Google. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -117,7 +157,7 @@ export default function LoginScreen() {
           
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Email</Text>
-            <View style={styles.inputContainer}>
+            <View style={[styles.inputContainer, emailError && styles.inputError]}>
               <FontAwesome name="envelope-o" size={20} color={Theme.COLORS.MUTED} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
@@ -130,11 +170,12 @@ export default function LoginScreen() {
                 autoFocus={true}
               />
             </View>
+            {emailError && <Text style={styles.errorText}>{emailError}</Text>}
           </View>
 
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Password</Text>
-            <View style={styles.inputContainer}>
+            <View style={[styles.inputContainer, passwordError && styles.inputError]}>
               <FontAwesome name="lock" size={20} color={Theme.COLORS.MUTED} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
@@ -157,7 +198,14 @@ export default function LoginScreen() {
                 />
               </TouchableOpacity>
             </View>
+            {passwordError && <Text style={styles.errorText}>{passwordError}</Text>}
           </View>
+
+          {generalError && (
+            <View style={styles.generalErrorContainer}>
+              <Text style={styles.generalErrorText}>{generalError}</Text>
+            </View>
+          )}
 
           <TouchableOpacity style={styles.forgotPassword}>
             <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
@@ -205,6 +253,26 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
+  errorText: {
+    color: Theme.COLORS.ERROR,
+    fontSize: 12,
+    marginTop: 4,
+    marginLeft: 2,
+  },
+  inputError: {
+    borderColor: Theme.COLORS.ERROR,
+  },
+  generalErrorContainer: {
+    backgroundColor: 'rgba(255, 0, 0, 0.1)',
+    borderRadius: 4,
+    padding: 10,
+    marginBottom: 15,
+  },
+  generalErrorText: {
+    color: Theme.COLORS.ERROR,
+    fontSize: 14,
+    textAlign: 'center',
+  },
   container: {
     flex: 1,
   },
