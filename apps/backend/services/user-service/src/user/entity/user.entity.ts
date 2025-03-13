@@ -98,4 +98,17 @@ export class User {
   @UpdateDateColumn({ name: 'updated_at' })
   @ApiProperty({ description: 'Last update date of the user record.' })
   updatedAt: Date;
+
+  // Day streak tracking fields
+  @Column({ name: 'current_streak', default: 0 })
+  @ApiPropertyOptional({ description: 'Current consecutive days streak', example: 5 })
+  currentStreak: number;
+
+  @Column({ name: 'last_active_date', type: 'date', nullable: true })
+  @ApiPropertyOptional({ description: 'Date of last user activity', example: '2025-03-12' })
+  lastActiveDate: Date;
+
+  @Column({ name: 'max_streak', default: 0 })
+  @ApiPropertyOptional({ description: 'Maximum streak achieved by the user', example: 10 })
+  maxStreak: number;
 }

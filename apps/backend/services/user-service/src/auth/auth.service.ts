@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, ConflictException, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
@@ -222,6 +222,95 @@ export class AuthService {
       return this.login(user);
     } catch (error) {
       throw new UnauthorizedException('Invalid refresh token');
+    }
+  }
+
+  /**
+   * Calculate the user's day streak based on activity logs
+   * @param userId The user ID
+   * @returns The number of consecutive days with activity
+   */
+  async calculateUserDayStreak(userId: number): Promise<{ streak: number }> {
+    try {
+      Logger.log(`Calculating day streak for user ID: ${userId}`);
+      
+      // Get all activity logs for the user, ordered by date
+      const activityLogs = await this.activityLogRepository.find({
+        where: { user: { id: userId } },
+        order: { createdAt: 'DESC' },
+      });
+
+      Logger.log(`Found ${activityLogs.length} activity logs for user ID: ${userId}`);
+
+      if (!activityLogs.length) {
+        return { streak: 0 };
+      }
+
+      // Create a Set of dates with activity (as string in YYYY-MM-DD format)
+      const activeDays = new Set<string>();
+      activityLogs.forEach(log => {
+        const date = new Date(log.createdAt);
+        // Normalize to start of day and convert to YYYY-MM-DD format
+        date.setHours(0, 0, 0, 0);
+        activeDays.add(date.toISOString().split('T')[0]);
+      });
+      
+      // If there's only one unique day with activity, the streak is 1
+      if (activeDays.size === 1) {
+        Logger.log(`User ID: ${userId} has activity on only one day, streak is 1`);
+        return { streak: 1 };
+      }
+      
+      // Sort dates in descending order (newest first)
+      const dates = Array.from(activeDays).sort().reverse();
+      
+      // Get the most recent activity date
+      const mostRecentDate = new Date(dates[0]);
+      
+      // Check if the most recent activity is today or yesterday
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      
+      const mostRecentTime = mostRecentDate.getTime();
+      const isRecentActivity = 
+        mostRecentTime === today.getTime() || 
+        mostRecentTime === yesterday.getTime();
+      
+      // If the most recent activity is not today or yesterday, streak is broken
+      if (!isRecentActivity) {
+        Logger.log(`Most recent activity for user ID: ${userId} is not today or yesterday, streak is 0`);
+        return { streak: 0 };
+      }
+      
+      // Start with streak of 1 for the most recent day
+      let streak = 1;
+      
+      // Count consecutive days
+      for (let i = 1; i < dates.length; i++) {
+        const current = new Date(dates[i-1]);
+        const prev = new Date(dates[i]);
+        
+        // Calculate difference in days
+        const diffTime = current.getTime() - prev.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (diffDays === 1) {
+          // Consecutive day
+          streak++;
+        } else {
+          // Break in the streak
+          break;
+        }
+      }
+      
+      Logger.log(`Calculated streak for user ID: ${userId} is ${streak}`);
+      return { streak };
+    } catch (error) {
+      Logger.error(`Error calculating day streak for user ID: ${userId}`, error.stack);
+      return { streak: 0 };
     }
   }
 }
