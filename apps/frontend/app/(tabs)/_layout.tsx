@@ -1,20 +1,143 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Tabs } from 'expo-router';
-import { Dimensions, View, Text, StyleSheet, Platform } from 'react-native';
+import { 
+  Dimensions, 
+  View, 
+  Text, 
+  StyleSheet, 
+  Platform, 
+  useWindowDimensions,
+  ScaledSize 
+} from 'react-native';
 
 import Theme from '@/constants/Theme';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useClientOnlyValue } from '@/components/useClientOnlyValue';
 import { ProtectedRoute } from '@/services/auth/ProtectedRoute';
 
-// Get screen dimensions for responsive sizing
-const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+// Screen width threshold to determine layout style (vertical vs horizontal)
+const LAYOUT_THRESHOLD = 600; // Tablets typically have width > 600
 
-// Calculate dynamic sizes based on screen dimensions
-const tabBarHeight = Math.max(60, screenHeight * 0.08); // 8% of screen height, minimum 60
-const iconSize = Math.max(20, Math.min(24, screenWidth * 0.06)); // 6% of screen width, between 20-24
-const fontSize = Math.max(10, Math.min(12, screenWidth * 0.03)); // 3% of screen width, between 10-12
+// Define the FontAwesome icon type for type safety
+type FontAwesomeIconName = React.ComponentProps<typeof FontAwesome>['name'];
+
+// Tab configuration for consistent ordering and properties
+const TAB_CONFIG = [
+  {
+    name: 'index',
+    title: 'Dashboard',
+    label: 'Home',
+    icon: 'home' as FontAwesomeIconName,
+  },
+  {
+    name: 'food-log',
+    title: 'Food Log',
+    label: 'Food',
+    icon: 'cutlery' as FontAwesomeIconName,
+  },
+  {
+    name: 'exercise-log',
+    title: 'Exercise Log',
+    label: 'Exercise',
+    icon: 'heartbeat' as FontAwesomeIconName,
+  },
+  {
+    name: 'ai-assistant',
+    title: 'AI Assistant',
+    label: 'AI',
+    icon: 'comment' as FontAwesomeIconName,
+  },
+  {
+    name: 'account',
+    title: 'Account',
+    label: 'Account',
+    icon: 'user' as FontAwesomeIconName,
+  },
+];
+
+// Styles defined outside component to prevent recreation on each render
+const styles = StyleSheet.create({
+  verticalTabButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 5,
+  },
+  verticalTabContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  horizontalTabButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 5,
+  },
+  tabLabel: {
+    textAlign: 'center',
+  },
+});
+
+// Custom tab bar button that adapts to screen size
+function CustomTabButton({ 
+  icon, 
+  label, 
+  color, 
+  isLargeScreen,
+  tabBarHeight
+}: { 
+  icon: FontAwesomeIconName;
+  label: string;
+  color: string;
+  isLargeScreen: boolean;
+  tabBarHeight: number;
+}) {
+  // Calculate icon size based on tab bar height
+  const iconSize = Math.floor(tabBarHeight * (isLargeScreen ? 0.4 : 0.35));
+  const fontSize = Math.max(10, Math.min(12, iconSize * 0.5));
+
+  if (isLargeScreen) {
+    // Horizontal layout (icon to the left of text) for larger screens
+    return (
+      <View style={styles.horizontalTabButton}>
+        <FontAwesome name={icon} size={iconSize} color={color} />
+        <Text style={[styles.tabLabel, { color, fontSize, marginLeft: 8 }]}>
+          {label}
+        </Text>
+      </View>
+    );
+  } else {
+    // Vertical layout (icon above text) for smaller screens
+    
+    // Calculate the total height of content (icon + spacing + text)
+    const iconHeight = iconSize;
+    const textHeight = fontSize * 1.2; // Approximate text height based on font size
+    const spacingHeight = 4; // Space between icon and text
+    const totalContentHeight = iconHeight + textHeight + spacingHeight;
+    
+    // Calculate top margin to center content in tab bar
+    // Subtract any padding that might be applied to the container
+    const verticalPadding = 0; // Total vertical padding (top + bottom)
+    const availableHeight = tabBarHeight - verticalPadding;
+    const topMargin = Math.max(0, (availableHeight - totalContentHeight));
+
+    return (
+      <View style={styles.verticalTabButton}>
+        <View style={[
+          styles.verticalTabContent,
+          { marginTop: topMargin }
+        ]}>
+          <FontAwesome name={icon} size={iconSize} color={color} />
+          <Text style={[styles.tabLabel, { color, fontSize, marginTop: spacingHeight }]}>
+            {label}
+          </Text>
+        </View>
+      </View>
+    );
+  }
+}
 
 export default function TabLayout() {
   return (
@@ -26,106 +149,78 @@ export default function TabLayout() {
 
 function TabNavigator() {
   const colorScheme = useColorScheme();
-
+  const { width, height } = useWindowDimensions();
+  const [dimensions, setDimensions] = useState({ width, height });
+  
+  // Update dimensions when screen size changes (e.g., rotation)
+  useEffect(() => {
+    const subscription = Dimensions.addEventListener('change', ({ window }) => {
+      setDimensions({ width: window.width, height: window.height });
+    });
+    
+    return () => subscription.remove();
+  }, []);
+  
+  // Determine if we're on a large screen (tablet)
+  const isLargeScreen = dimensions.width >= LAYOUT_THRESHOLD;
+  
+  // Calculate tab bar height based on screen dimensions
+  const tabBarHeight = Math.max(60, dimensions.height * 0.08); // 8% of height, min 60
+  
   return (
     <Tabs
-      screenOptions={{
+      screenOptions={({ route }) => ({
         tabBarActiveTintColor: Theme.COLORS.PRIMARY,
         tabBarInactiveTintColor: '#888',
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: {
+          backgroundColor: '#fff',
+          borderTopWidth: 1,
+          borderTopColor: '#e0e0e0',
+          height: tabBarHeight,
+          paddingTop: 0,
+          paddingBottom: 0,
+          ...Platform.select({
+            ios: {
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: -1 },
+              shadowOpacity: 0.1,
+              shadowRadius: 4,
+            },
+            android: {
+              elevation: 8,
+            },
+          }),
+        },
+        // Hide the default label since we're using custom tab bar buttons
+        tabBarLabel: () => null,
+        tabBarItemStyle: {
+          height: tabBarHeight,
+        },
         headerStyle: {
           backgroundColor: Theme.COLORS.PRIMARY,
         },
         headerTintColor: '#fff',
         headerShown: true,
-        tabBarItemStyle: {
-          height: tabBarHeight,
-        },
-      }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Dashboard',
-          tabBarLabel: 'Home',
-          tabBarIcon: ({ color, focused }) => (
-            <View style={styles.iconContainer}>
-              <FontAwesome name="home" size={iconSize} color={color} />
-            </View>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="food-log"
-        options={{
-          title: 'Food Log',
-          tabBarLabel: 'Food',
-          tabBarIcon: ({ color, focused }) => (
-            <View style={styles.iconContainer}>
-              <FontAwesome name="cutlery" size={iconSize} color={color} />
-            </View>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="exercise-log"
-        options={{
-          title: 'Exercise Log',
-          tabBarLabel: 'Exercise',
-          tabBarIcon: ({ color, focused }) => (
-            <View style={styles.iconContainer}>
-              <FontAwesome name="heartbeat" size={iconSize} color={color} />
-            </View>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="ai-assistant"
-        options={{
-          title: 'AI Assistant',
-          tabBarLabel: 'AI',
-          tabBarIcon: ({ color, focused }) => (
-            <View style={styles.iconContainer}>
-              <FontAwesome name="comment" size={iconSize} color={color} />
-            </View>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="account"
-        options={{
-          title: 'Account',
-          tabBarLabel: 'Account',
-          tabBarIcon: ({ color, focused }) => (
-            <View style={styles.iconContainer}>
-              <FontAwesome name="user" size={iconSize} color={color} />
-            </View>
-          ),
-        }}
-      />
+      })}>
+      
+      {TAB_CONFIG.map((tab) => (
+        <Tabs.Screen
+          key={tab.name}
+          name={tab.name}
+          options={{
+            title: tab.title,
+            tabBarIcon: ({ color, focused }) => (
+              <CustomTabButton
+                icon={tab.icon}
+                label={tab.label}
+                color={color}
+                isLargeScreen={isLargeScreen}
+                tabBarHeight={tabBarHeight}
+              />
+            ),
+          }}
+        />
+      ))}
     </Tabs>
   );
 }
-
-// Styles defined outside component to prevent recreation on each render
-const styles = StyleSheet.create({
-  tabBar: {
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-    height: tabBarHeight,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 8,
-      },
-    }),
-  },
-  iconContainer: {
-    marginBottom: -5, // This helps position the icon above the label
-  },
-});
