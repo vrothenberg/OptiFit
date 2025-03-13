@@ -29,7 +29,6 @@ export default function AccountScreen() {
   const [fastingReminderEnabled, setFastingReminderEnabled] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [logoutModalVisible, setLogoutModalVisible] = useState(false);
-  const [deleteAccountModalVisible, setDeleteAccountModalVisible] = useState(false);
   const [editProfileModalVisible, setEditProfileModalVisible] = useState(false);
   const [helpCenterModalVisible, setHelpCenterModalVisible] = useState(false);
   const [contactUsModalVisible, setContactUsModalVisible] = useState(false);
@@ -140,21 +139,10 @@ export default function AccountScreen() {
     console.log('handleLogout called');
     setLogoutModalVisible(true);
   };
-  
-  // Handle delete account - show confirmation modal
-  const handleDeleteAccount = () => {
-    setDeleteAccountModalVisible(true);
-  };
-  
-  // Handle actual delete account action
-  const performDeleteAccount = () => {
-    // Navigate to the landing page
-    router.push('/');
-  };
 
   // Navigate to developer tools screen
   const navigateToDevTools = () => {
-    router.push('/dev-tools');
+    router.replace('/dev-tools');
   };
 
   return (
@@ -169,18 +157,6 @@ export default function AccountScreen() {
         onConfirm={performLogout}
         onCancel={() => setLogoutModalVisible(false)}
         icon="sign-out"
-      />
-      
-      <ConfirmationModal
-        visible={deleteAccountModalVisible}
-        title="Delete Account"
-        message="Are you sure you want to delete your account? This action cannot be undone."
-        confirmText="Delete"
-        cancelText="Cancel"
-        onConfirm={performDeleteAccount}
-        onCancel={() => setDeleteAccountModalVisible(false)}
-        isDestructive={true}
-        icon="trash"
       />
       
       <ConfirmationModal
@@ -307,7 +283,7 @@ export default function AccountScreen() {
             
             <TouchableOpacity 
               style={styles.editProfileButton}
-              onPress={() => router.push('/profile/edit')}
+              onPress={() => router.replace('/profile/edit')}
             >
               <Text style={styles.editProfileButtonText}>Edit Profile</Text>
             </TouchableOpacity>
@@ -331,16 +307,6 @@ export default function AccountScreen() {
                   <Text style={styles.logoutButtonText}>Logout</Text>
                 </View>
               )}
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.deleteAccountButton}
-              onPress={handleDeleteAccount}
-            >
-              <View style={styles.buttonInnerContainer}>
-                <FontAwesome name="trash" size={18} color={Theme.COLORS.ERROR} style={styles.buttonIcon} />
-                <Text style={styles.deleteAccountButtonText}>Delete Account</Text>
-              </View>
             </TouchableOpacity>
           </View>
           
@@ -512,19 +478,6 @@ const styles = StyleSheet.create({
     color: Theme.COLORS.WHITE,
     fontSize: 16,
     fontWeight: 'bold',
-  },
-  deleteAccountButton: {
-    backgroundColor: 'transparent',
-    paddingVertical: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Theme.COLORS.ERROR,
-  },
-  deleteAccountButtonText: {
-    color: Theme.COLORS.ERROR,
-    fontSize: 16,
-    fontWeight: '600',
   },
   versionContainer: {
     alignItems: 'center',

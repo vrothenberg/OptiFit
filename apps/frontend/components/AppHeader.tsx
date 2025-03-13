@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   StyleSheet, 
   View, 
@@ -11,6 +11,7 @@ import { FontAwesome } from '@expo/vector-icons';
 import { useRouter, usePathname } from 'expo-router';
 
 import Theme from '@/constants/Theme';
+import AccountDropdown from './AccountDropdown';
 
 interface AppHeaderProps {
   title: string;
@@ -54,18 +55,28 @@ export default function AppHeader({
     }
   };
 
+  const [accountDropdownVisible, setAccountDropdownVisible] = useState(false);
+  
   const handleAccountPress = () => {
     if (onAccountPress) {
       onAccountPress();
     } else {
-      // Navigate to account page
-      // Use replace instead of push to avoid navigation stack issues
-      router.replace('/profile/account');
+      // Toggle the account dropdown
+      setAccountDropdownVisible(!accountDropdownVisible);
     }
+  };
+  
+  const handleCloseDropdown = () => {
+    setAccountDropdownVisible(false);
   };
 
   return (
     <View style={styles.header}>
+      {/* Account Dropdown */}
+      <AccountDropdown 
+        isVisible={accountDropdownVisible}
+        onClose={handleCloseDropdown}
+      />
       {/* Left: Title */}
       <Text style={[styles.headerTitle, titleSize ? { fontSize: titleSize } : null]}>{title}</Text>
       

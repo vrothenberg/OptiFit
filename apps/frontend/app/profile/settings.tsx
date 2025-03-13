@@ -28,8 +28,20 @@ export default function SettingsScreen() {
   const [contactUsModalVisible, setContactUsModalVisible] = useState(false);
   const [privacyPolicyModalVisible, setPrivacyPolicyModalVisible] = useState(false);
   const [termsModalVisible, setTermsModalVisible] = useState(false);
+  const [deleteAccountModalVisible, setDeleteAccountModalVisible] = useState(false);
 
   console.log("Settings Screen");
+
+  // Handle delete account - show confirmation modal
+  const handleDeleteAccount = () => {
+    setDeleteAccountModalVisible(true);
+  };
+  
+  // Handle actual delete account action
+  const performDeleteAccount = () => {
+    // Navigate to the landing page
+    router.replace('/');
+  };
 
   return (
     <View style={styles.container}>
@@ -76,6 +88,18 @@ export default function SettingsScreen() {
         onConfirm={() => setTermsModalVisible(false)}
         onCancel={() => setTermsModalVisible(false)}
         icon="file-text"
+      />
+      
+      <ConfirmationModal
+        visible={deleteAccountModalVisible}
+        title="Delete Account"
+        message="Are you sure you want to delete your account? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={performDeleteAccount}
+        onCancel={() => setDeleteAccountModalVisible(false)}
+        isDestructive={true}
+        icon="trash"
       />
       
       {/* Custom header */}
@@ -178,13 +202,28 @@ export default function SettingsScreen() {
           
           <TouchableOpacity 
             style={styles.menuItem}
-            onPress={() => router.push('/dev-tools')}
+            onPress={() => router.replace('/dev-tools')}
           >
             <View style={styles.menuItemLabelContainer}>
               <FontAwesome name="bug" size={20} color={Theme.COLORS.DEFAULT} style={styles.menuItemIcon} />
               <Text style={styles.menuItemLabel}>Developer Tools</Text>
             </View>
             <FontAwesome name="chevron-right" size={16} color={Theme.COLORS.MUTED} />
+          </TouchableOpacity>
+        </View>
+        
+        {/* Account Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Account</Text>
+          
+          <TouchableOpacity 
+            style={styles.deleteAccountButton}
+            onPress={handleDeleteAccount}
+          >
+            <View style={styles.buttonInnerContainer}>
+              <FontAwesome name="trash" size={18} color={Theme.COLORS.ERROR} style={styles.buttonIcon} />
+              <Text style={styles.deleteAccountButtonText}>Delete Account</Text>
+            </View>
           </TouchableOpacity>
         </View>
         
@@ -257,6 +296,27 @@ const styles = StyleSheet.create({
   menuItemLabel: {
     fontSize: 16,
     color: Theme.COLORS.DEFAULT,
+  },
+  buttonInnerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buttonIcon: {
+    marginRight: 10,
+  },
+  deleteAccountButton: {
+    backgroundColor: 'transparent',
+    paddingVertical: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Theme.COLORS.ERROR,
+  },
+  deleteAccountButtonText: {
+    color: Theme.COLORS.ERROR,
+    fontSize: 16,
+    fontWeight: '600',
   },
   versionContainer: {
     alignItems: 'center',

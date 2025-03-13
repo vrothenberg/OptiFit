@@ -1,0 +1,296 @@
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Dimensions,
+  TouchableOpacity,
+  Animated,
+  NativeSyntheticEvent,
+  NativeScrollEvent
+} from 'react-native';
+import { FontAwesome } from '@expo/vector-icons';
+import Theme from '@/constants/Theme';
+
+interface NumberScrollWheelProps {
+  value: number;
+  onChange: (value: number) => void;
+  minValue: number;
+  maxValue: number;
+  step?: number;
+  unit?: string;
+  label?: string;
+  error?: string | null;
+}
+
+const ITEM_HEIGHT = 50;
+const VISIBLE_ITEMS = 5;
+
+export default function NumberScrollWheel({
+  value,
+  onChange,
+  minValue,
+  maxValue,
+  step = 1,
+  unit = '',
+  label = '',
+  error
+}: NumberScrollWheelProps) {
+  const scrollViewRef = useRef<ScrollView>(null);
+  const [scrollPosition, setScrollPosition] = useState(0);
+  const [isScrolling, setIsScrolling] = useState(false);
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  
+  // Generate the range of values
+  const values: number[] = [];
+  for (let i = minValue; i <= maxValue; i += step) {
+    values.push(i);
+  }
+  
+  // Find the index of the current value
+  const currentIndex = values.indexOf(value);
+  
+  // Scroll to the current value on mount
+  useEffect(() => {
+    if (scrollViewRef.current && currentIndex !== -1) {
+      // Add a small delay to ensure the component is fully rendered
+      setTimeout(() => {
+        scrollViewRef.current?.scrollTo({
+          y: currentIndex * ITEM_HEIGHT,
+          animated: false
+        });
+      }, 100);
+    }
+  }, []);
+  
+  // Handle scroll end
+  const handleScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const y = event.nativeEvent.contentOffset.y;
+    const index = Math.round(y / ITEM_HEIGHT);
+    const newValue = values[index];
+    
+    // Snap to the nearest value
+    if (scrollViewRef.current) {
+      scrollViewRef.current.scrollTo({
+        y: index * ITEM_HEIGHT,
+        animated: true
+      });
+    }
+    
+    // Update the value if it changed
+    if (newValue !== value) {
+      onChange(newValue);
+    }
+    
+    setIsScrolling(false);
+    
+    // Fade in the selection indicator
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 200,
+      useNativeDriver: true
+    }).start();
+  };
+  
+  // Handle scroll start
+  const handleScrollBegin = () => {
+    setIsScrolling(true);
+    
+    // Fade out the selection indicator
+    Animated.timing(fadeAnim, {
+      toValue: 0.3,
+      duration: 200,
+      useNativeDriver: true
+    }).start();
+  };
+  
+  // Handle scroll
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    setScrollPosition(event.nativeEvent.contentOffset.y);
+  };
+  
+  // Increment the value
+  const increment = () => {
+    const currentIndex = values.indexOf(value);
+    if (currentIndex < values.length - 1) {
+      const newValue = values[currentIndex + 1];
+      onChange(newValue);
+      
+      // Scroll to the new value
+      if (scrollViewRef.current) {
+        scrollViewRef.current.scrollTo({
+          y: (currentIndex + 1) * ITEM_HEIGHT,
+          animated: true
+        });
+      }
+    }
+  };
+  
+  // Decrement the value
+  const decrement = () => {
+    const currentIndex = values.indexOf(value);
+    if (currentIndex > 0) {
+      const newValue = values[currentIndex - 1];
+      onChange(newValue);
+      
+      // Scroll to the new value
+      if (scrollViewRef.current) {
+        scrollViewRef.current.scrollTo({
+          y: (currentIndex - 1) * ITEM_HEIGHT,
+          animated: true
+        });
+      }
+    }
+  };
+  
+  return (
+    <View style={styles.container}>
+      {label && <Text style={styles.label}>{label}</Text>}
+      
+      <View style={[styles.wheelContainer, error ? styles.wheelContainerError : null]}>
+        {/* Increment button */}
+        <TouchableOpacity 
+          style={styles.button} 
+          onPress={increment}
+          disabled={value >= maxValue}
+        >
+          <FontAwesome 
+            name="chevron-up" 
+            size={16} 
+            color={value >= maxValue ? Theme.COLORS.MUTED : Theme.COLORS.DEFAULT} 
+          />
+        </TouchableOpacity>
+        
+        {/* Scroll wheel */}
+        <View style={styles.scrollContainer}>
+          {/* Selection indicator */}
+          <Animated.View 
+            style={[
+              styles.selectionIndicator,
+              { opacity: fadeAnim }
+            ]} 
+          />
+          
+          <ScrollView
+            ref={scrollViewRef}
+            showsVerticalScrollIndicator={false}
+            snapToInterval={ITEM_HEIGHT}
+            decelerationRate="fast"
+            onScrollBeginDrag={handleScrollBegin}
+            onScrollEndDrag={handleScrollEnd}
+            onMomentumScrollEnd={handleScrollEnd}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
+            contentContainerStyle={{
+              paddingVertical: ITEM_HEIGHT * Math.floor(VISIBLE_ITEMS / 2)
+            }}
+          >
+            {values.map((num) => (
+              <View key={num} style={styles.item}>
+                <Text 
+                  style={[
+                    styles.itemText,
+                    Math.abs(scrollPosition - values.indexOf(num) * ITEM_HEIGHT) < ITEM_HEIGHT / 2 
+                      ? styles.itemTextSelected 
+                      : null
+                  ]}
+                >
+                  {num}{unit}
+                </Text>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+        
+        {/* Decrement button */}
+        <TouchableOpacity 
+          style={styles.button} 
+          onPress={decrement}
+          disabled={value <= minValue}
+        >
+          <FontAwesome 
+            name="chevron-down" 
+            size={16} 
+            color={value <= minValue ? Theme.COLORS.MUTED : Theme.COLORS.DEFAULT} 
+          />
+        </TouchableOpacity>
+      </View>
+      
+      {error && <Text style={styles.errorText}>{error}</Text>}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    width: '100%',
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Theme.COLORS.DEFAULT,
+    marginBottom: 8,
+  },
+  wheelContainer: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    overflow: 'hidden',
+  },
+  wheelContainerError: {
+    borderColor: Theme.COLORS.ERROR,
+  },
+  scrollContainer: {
+    height: ITEM_HEIGHT * VISIBLE_ITEMS,
+    width: '100%',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  selectionIndicator: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: '50%',
+    marginTop: -ITEM_HEIGHT / 2,
+    height: ITEM_HEIGHT,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#e0e0e0',
+    zIndex: 1,
+  },
+  item: {
+    height: ITEM_HEIGHT,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  itemText: {
+    fontSize: 18,
+    color: Theme.COLORS.MUTED,
+  },
+  itemTextSelected: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: Theme.COLORS.DEFAULT,
+  },
+  button: {
+    width: '100%',
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.03)',
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  errorText: {
+    color: Theme.COLORS.ERROR,
+    fontSize: 12,
+    marginTop: 4,
+    marginLeft: 2,
+  },
+});

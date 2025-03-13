@@ -21,6 +21,8 @@ import Theme from '@/constants/Theme';
 import { useAuth } from '@/services/auth/AuthContext';
 import { User, UserProfile } from '@/services/api/types';
 import DatePicker from '@/components/DatePicker';
+import GenderDropdown from '@/components/GenderDropdown';
+import NumberPicker from '@/components/NumberPicker';
 
 export default function EditProfileScreen() {
   const router = useRouter();
@@ -242,7 +244,7 @@ export default function EditProfileScreen() {
       
       // Navigate back to account page after a short delay
       setTimeout(() => {
-        router.back();
+        router.replace('/profile/account');
       }, 1500);
     } catch (error: any) {
       console.error('Profile update error:', error);
@@ -263,7 +265,7 @@ export default function EditProfileScreen() {
           setGeneralError('Your session has expired. Please log in again.');
           // Redirect to login after a delay
           setTimeout(() => {
-            router.push('/auth/login');
+            router.replace('/auth/login');
           }, 2000);
         } else {
           setGeneralError(error.message);
@@ -277,7 +279,7 @@ export default function EditProfileScreen() {
   };
 
   const handleCancel = () => {
-    router.back();
+    router.replace('/profile/account');
   };
 
   return (
@@ -323,126 +325,73 @@ export default function EditProfileScreen() {
               </View>
             )}
             
-            <View style={styles.inputRow}>
-              <View style={[styles.inputGroup, styles.inputHalf]}>
-                <Text style={styles.inputLabel}>First Name <Text style={styles.required}>*</Text></Text>
-                <TextInput
-                  style={[styles.input, firstNameError && styles.inputError]}
-                  placeholder="First Name"
-                  placeholderTextColor={Theme.COLORS.PLACEHOLDER}
-                  value={firstName}
-                  onChangeText={setFirstName}
-                />
-                {firstNameError && <Text style={styles.errorText}>{firstNameError}</Text>}
-              </View>
-              
-              <View style={[styles.inputGroup, styles.inputHalf]}>
-                <Text style={styles.inputLabel}>Last Name <Text style={styles.required}>*</Text></Text>
-                <TextInput
-                  style={[styles.input, lastNameError && styles.inputError]}
-                  placeholder="Last Name"
-                  placeholderTextColor={Theme.COLORS.PLACEHOLDER}
-                  value={lastName}
-                  onChangeText={setLastName}
-                />
-                {lastNameError && <Text style={styles.errorText}>{lastNameError}</Text>}
-              </View>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>First Name <Text style={styles.required}>*</Text></Text>
+              <TextInput
+                style={[styles.input, firstNameError && styles.inputError]}
+                placeholder="First Name"
+                placeholderTextColor={Theme.COLORS.PLACEHOLDER}
+                value={firstName}
+                onChangeText={setFirstName}
+              />
+              {firstNameError && <Text style={styles.errorText}>{firstNameError}</Text>}
+            </View>
+            
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Last Name <Text style={styles.required}>*</Text></Text>
+              <TextInput
+                style={[styles.input, lastNameError && styles.inputError]}
+                placeholder="Last Name"
+                placeholderTextColor={Theme.COLORS.PLACEHOLDER}
+                value={lastName}
+                onChangeText={setLastName}
+              />
+              {lastNameError && <Text style={styles.errorText}>{lastNameError}</Text>}
             </View>
 
-            <View style={styles.inputRow}>
-              <View style={[styles.inputGroup, styles.inputHalf]}>
-                <Text style={styles.inputLabel}>Date of Birth</Text>
-                <DatePicker
-                  value={dateOfBirth}
-                  onChange={setDateOfBirth}
-                  placeholder="Select date of birth"
-                />
-                {dateOfBirthError && <Text style={styles.errorText}>{dateOfBirthError}</Text>}
-              </View>
-              
-              <View style={[styles.inputGroup, styles.inputHalf]}>
-                <Text style={styles.inputLabel}>Gender</Text>
-                <View style={styles.genderContainer}>
-                  <TouchableOpacity 
-                    style={[
-                      styles.genderButton,
-                      gender === 'male' && styles.genderButtonSelected
-                    ]}
-                    onPress={() => setGender('male')}
-                  >
-                    <Text 
-                      style={[
-                        styles.genderButtonText,
-                        gender === 'male' && styles.genderButtonTextSelected
-                      ]}
-                    >
-                      Male
-                    </Text>
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity 
-                    style={[
-                      styles.genderButton,
-                      gender === 'female' && styles.genderButtonSelected
-                    ]}
-                    onPress={() => setGender('female')}
-                  >
-                    <Text 
-                      style={[
-                        styles.genderButtonText,
-                        gender === 'female' && styles.genderButtonTextSelected
-                      ]}
-                    >
-                      Female
-                    </Text>
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity 
-                    style={[
-                      styles.genderButton,
-                      gender === 'other' && styles.genderButtonSelected
-                    ]}
-                    onPress={() => setGender('other')}
-                  >
-                    <Text 
-                      style={[
-                        styles.genderButtonText,
-                        gender === 'other' && styles.genderButtonTextSelected
-                      ]}
-                    >
-                      Other
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Date of Birth</Text>
+              <DatePicker
+                value={dateOfBirth}
+                onChange={setDateOfBirth}
+                placeholder="Select date of birth"
+              />
+              {dateOfBirthError && <Text style={styles.errorText}>{dateOfBirthError}</Text>}
+            </View>
+            
+            <View style={styles.inputGroup}>
+              <GenderDropdown
+                value={gender}
+                onChange={setGender}
+                error={null}
+                label="Gender"
+              />
             </View>
 
-            <View style={styles.inputRow}>
-              <View style={[styles.inputGroup, styles.inputHalf]}>
-                <Text style={styles.inputLabel}>Height (cm)</Text>
-                <TextInput
-                  style={[styles.input, heightError && styles.inputError]}
-                  placeholder="Height"
-                  placeholderTextColor={Theme.COLORS.PLACEHOLDER}
-                  value={height}
-                  onChangeText={setHeight}
-                  keyboardType="number-pad"
-                />
-                {heightError && <Text style={styles.errorText}>{heightError}</Text>}
-              </View>
-              
-              <View style={[styles.inputGroup, styles.inputHalf]}>
-                <Text style={styles.inputLabel}>Weight (kg)</Text>
-                <TextInput
-                  style={[styles.input, weightError && styles.inputError]}
-                  placeholder="Weight"
-                  placeholderTextColor={Theme.COLORS.PLACEHOLDER}
-                  value={weight}
-                  onChangeText={setWeight}
-                  keyboardType="number-pad"
-                />
-                {weightError && <Text style={styles.errorText}>{weightError}</Text>}
-              </View>
+            <View style={styles.inputGroup}>
+              <NumberPicker
+                value={parseInt(height) || 170}
+                onChange={(value) => setHeight(value.toString())}
+                minValue={140}
+                maxValue={220}
+                step={1}
+                unit=" cm"
+                label="Height"
+                error={heightError}
+              />
+            </View>
+            
+            <View style={styles.inputGroup}>
+              <NumberPicker
+                value={parseInt(weight) || 70}
+                onChange={(value) => setWeight(value.toString())}
+                minValue={40}
+                maxValue={150}
+                step={1}
+                unit=" kg"
+                label="Weight"
+                error={weightError}
+              />
             </View>
 
             <Text style={styles.note}>
@@ -567,16 +516,9 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  inputRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 15,
-  },
   inputGroup: {
-    marginBottom: 15,
-  },
-  inputHalf: {
-    width: '48%',
+    marginBottom: 20,
+    width: '100%',
   },
   inputLabel: {
     fontSize: 14,
@@ -596,31 +538,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     fontSize: 16,
     color: Theme.COLORS.DEFAULT,
-  },
-  genderContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  genderButton: {
-    flex: 1,
-    paddingVertical: 12,
-    backgroundColor: '#f5f5f5',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    alignItems: 'center',
-    marginHorizontal: 2,
-  },
-  genderButtonSelected: {
-    backgroundColor: Theme.COLORS.PRIMARY,
-    borderColor: Theme.COLORS.PRIMARY,
-  },
-  genderButtonText: {
-    fontSize: 14,
-    color: Theme.COLORS.DEFAULT,
-  },
-  genderButtonTextSelected: {
-    color: Theme.COLORS.WHITE,
-    fontWeight: 'bold',
   },
   note: {
     fontSize: 12,
