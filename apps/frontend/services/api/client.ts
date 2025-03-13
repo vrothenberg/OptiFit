@@ -101,6 +101,8 @@ class ApiClient {
           // Check if we've already tried to refresh too many times
           if (retryCount >= 2) {
             console.error('Maximum token refresh attempts reached. Logging out.');
+            
+            // Clear tokens first to ensure we're logged out
             await this.clearAuthToken();
             
             // Trigger auth failure event for listeners
@@ -253,6 +255,7 @@ class ApiClient {
       
       // If no token exists, user is not authenticated
       if (!token) {
+        console.log('No access token found');
         return false;
       }
       
@@ -262,7 +265,8 @@ class ApiClient {
       
       if (parts.length !== 3) {
         console.log('Token is not a valid JWT format');
-        // Invalid token format, trigger auth failure
+        // Invalid token format, clear tokens and trigger auth failure
+        await this.clearAuthToken();
         this.triggerAuthFailure();
         return false;
       }
@@ -273,22 +277,44 @@ class ApiClient {
         
         // Check if token is expired
         if (payload.exp && payload.exp * 1000 < Date.now()) {
-          console.log('Token is expired');
-          // Token is expired, trigger auth failure
-          this.triggerAuthFailure();
-          return false;
+          console.log('Token is expired, attempting to refresh');
+          
+          // Try to refresh the token
+          const refreshToken = await this.getRefreshToken();
+          
+          if (!refreshToken) {
+            console.log('No refresh token available, clearing auth state');
+            await this.clearAuthToken();
+            this.triggerAuthFailure();
+            return false;
+          }
+          
+          try {
+            // Try to refresh the token
+            await this.refreshAccessToken(refreshToken);
+            console.log('Token refreshed successfully');
+            return true;
+          } catch (refreshError) {
+            console.error('Error refreshing token:', refreshError);
+            await this.clearAuthToken();
+            this.triggerAuthFailure();
+            return false;
+          }
         }
         
         // Token exists and is not expired
         return true;
       } catch (decodeError) {
         console.error('Error decoding token:', decodeError);
-        // Error decoding token, trigger auth failure
+        // Error decoding token, clear tokens and trigger auth failure
+        await this.clearAuthToken();
         this.triggerAuthFailure();
         return false;
       }
     } catch (error) {
       console.error('Error checking authentication:', error);
+      // On any error, clear tokens to be safe
+      await this.clearAuthToken();
       return false;
     }
   }

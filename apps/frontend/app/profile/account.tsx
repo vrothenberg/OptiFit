@@ -19,6 +19,7 @@ import { useAuth } from '@/services/auth/AuthContext';
 import { getCurrentUser, getLatestCircadianQuestionnaire, getUserDayStreak } from '@/services/userService';
 import { User, CircadianQuestionnaire } from '@/services/api/types';
 import ConfirmationModal from '@/components/ConfirmationModal';
+import AppHeader from '@/components/AppHeader';
 
 export default function AccountScreen() {
   const router = useRouter();
@@ -237,9 +238,10 @@ export default function AccountScreen() {
         icon="file-text"
       />
       
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Account</Text>
-      </View>
+      {/* Custom header */}
+      <AppHeader 
+        title="Account" 
+      />
       
       {isLoading ? (
         <View style={styles.loadingContainer}>
@@ -311,110 +313,6 @@ export default function AccountScreen() {
             </TouchableOpacity>
           </View>
           
-          {/* Settings Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Settings</Text>
-            
-            <View style={styles.settingItem}>
-              <View style={styles.settingLabelContainer}>
-                <FontAwesome name="bell" size={20} color={Theme.COLORS.DEFAULT} style={styles.settingIcon} />
-                <Text style={styles.settingLabel}>Notifications</Text>
-              </View>
-              <Switch
-                value={notificationsEnabled}
-                onValueChange={setNotificationsEnabled}
-                trackColor={{ false: '#e0e0e0', true: Theme.COLORS.PRIMARY }}
-                thumbColor="#fff"
-              />
-            </View>
-            
-            <View style={styles.settingItem}>
-              <View style={styles.settingLabelContainer}>
-                <FontAwesome name="moon-o" size={20} color={Theme.COLORS.DEFAULT} style={styles.settingIcon} />
-                <Text style={styles.settingLabel}>Dark Mode</Text>
-              </View>
-              <Switch
-                value={darkModeEnabled}
-                onValueChange={setDarkModeEnabled}
-                trackColor={{ false: '#e0e0e0', true: Theme.COLORS.PRIMARY }}
-                thumbColor="#fff"
-              />
-            </View>
-            
-            <View style={styles.settingItem}>
-              <View style={styles.settingLabelContainer}>
-                <FontAwesome name="clock-o" size={20} color={Theme.COLORS.DEFAULT} style={styles.settingIcon} />
-                <Text style={styles.settingLabel}>Fasting Reminders</Text>
-              </View>
-              <Switch
-                value={fastingReminderEnabled}
-                onValueChange={setFastingReminderEnabled}
-                trackColor={{ false: '#e0e0e0', true: Theme.COLORS.PRIMARY }}
-                thumbColor="#fff"
-              />
-            </View>
-          </View>
-          
-          {/* Support Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Support</Text>
-            
-            <TouchableOpacity 
-              style={styles.menuItem}
-              onPress={() => setHelpCenterModalVisible(true)}
-            >
-              <View style={styles.menuItemLabelContainer}>
-                <FontAwesome name="question-circle" size={20} color={Theme.COLORS.DEFAULT} style={styles.menuItemIcon} />
-                <Text style={styles.menuItemLabel}>Help Center</Text>
-              </View>
-              <FontAwesome name="chevron-right" size={16} color={Theme.COLORS.MUTED} />
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.menuItem}
-              onPress={() => setContactUsModalVisible(true)}
-            >
-              <View style={styles.menuItemLabelContainer}>
-                <FontAwesome name="envelope" size={20} color={Theme.COLORS.DEFAULT} style={styles.menuItemIcon} />
-                <Text style={styles.menuItemLabel}>Contact Us</Text>
-              </View>
-              <FontAwesome name="chevron-right" size={16} color={Theme.COLORS.MUTED} />
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.menuItem}
-              onPress={() => setPrivacyPolicyModalVisible(true)}
-            >
-              <View style={styles.menuItemLabelContainer}>
-                <FontAwesome name="lock" size={20} color={Theme.COLORS.DEFAULT} style={styles.menuItemIcon} />
-                <Text style={styles.menuItemLabel}>Privacy Policy</Text>
-              </View>
-              <FontAwesome name="chevron-right" size={16} color={Theme.COLORS.MUTED} />
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.menuItem}
-              onPress={() => setTermsModalVisible(true)}
-            >
-              <View style={styles.menuItemLabelContainer}>
-                <FontAwesome name="file-text" size={20} color={Theme.COLORS.DEFAULT} style={styles.menuItemIcon} />
-                <Text style={styles.menuItemLabel}>Terms of Service</Text>
-              </View>
-              <FontAwesome name="chevron-right" size={16} color={Theme.COLORS.MUTED} />
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.menuItem}
-              onPress={navigateToDevTools}
-            >
-              <View style={styles.menuItemLabelContainer}>
-                <FontAwesome name="bug" size={20} color={Theme.COLORS.DEFAULT} style={styles.menuItemIcon} />
-                <Text style={styles.menuItemLabel}>Developer Tools</Text>
-              </View>
-              <FontAwesome name="chevron-right" size={16} color={Theme.COLORS.MUTED} />
-            </TouchableOpacity>
-          </View>
-          
           {/* Account Actions */}
           <View style={styles.section}>
             <TouchableOpacity 
@@ -460,19 +358,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    backgroundColor: Theme.COLORS.PRIMARY,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: Theme.COLORS.WHITE,
   },
   loadingContainer: {
     flex: 1,
@@ -604,44 +489,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: Theme.COLORS.DEFAULT,
     marginBottom: 15,
-  },
-  settingItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  settingLabelContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  settingIcon: {
-    marginRight: 15,
-  },
-  settingLabel: {
-    fontSize: 16,
-    color: Theme.COLORS.DEFAULT,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  menuItemLabelContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  menuItemIcon: {
-    marginRight: 15,
-  },
-  menuItemLabel: {
-    fontSize: 16,
-    color: Theme.COLORS.DEFAULT,
   },
   buttonInnerContainer: {
     flexDirection: 'row',
