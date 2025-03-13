@@ -1,20 +1,20 @@
 import React from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Tabs } from 'expo-router';
-import { Pressable, View } from 'react-native';
+import { Dimensions, View, Text, StyleSheet, Platform } from 'react-native';
 
 import Theme from '@/constants/Theme';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useClientOnlyValue } from '@/components/useClientOnlyValue';
 import { ProtectedRoute } from '@/services/auth/ProtectedRoute';
 
-// You can explore the built-in icon families and icons on the web at https://icons.expo.fyi/
-function TabBarIcon(props: {
-  name: React.ComponentProps<typeof FontAwesome>['name'];
-  color: string;
-}) {
-  return <FontAwesome size={24} style={{ marginBottom: -3 }} {...props} />;
-}
+// Get screen dimensions for responsive sizing
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+
+// Calculate dynamic sizes based on screen dimensions
+const tabBarHeight = Math.max(60, screenHeight * 0.08); // 8% of screen height, minimum 60
+const iconSize = Math.max(20, Math.min(24, screenWidth * 0.06)); // 6% of screen width, between 20-24
+const fontSize = Math.max(10, Math.min(12, screenWidth * 0.03)); // 3% of screen width, between 10-12
 
 export default function TabLayout() {
   return (
@@ -29,104 +29,103 @@ function TabNavigator() {
 
   return (
     <Tabs
-      screenOptions={({ route }) => ({
+      screenOptions={{
         tabBarActiveTintColor: Theme.COLORS.PRIMARY,
         tabBarInactiveTintColor: '#888',
-        tabBarStyle: {
-          backgroundColor: '#fff',
-          borderTopWidth: 1,
-          borderTopColor: '#e0e0e0',
-          height: 60,
-          paddingBottom: 8,
-          paddingTop: 8,
-          paddingHorizontal: 8, // Reduced horizontal padding to give more space for labels
-        },
-        tabBarLabelStyle: {
-          fontSize: 12, // Smaller font size for labels
-        },
+        tabBarStyle: styles.tabBar,
         headerStyle: {
           backgroundColor: Theme.COLORS.PRIMARY,
         },
         headerTintColor: '#fff',
         headerShown: true,
-        // Add extra padding for the first and last tab items
-        tabBarItemStyle: 
-          route.name === 'food-log' 
-            ? { paddingLeft: 8 } // Extra padding for leftmost icon
-            : route.name === 'account' 
-              ? { paddingRight: 8 } // Extra padding for rightmost icon
-              : undefined,
-      })}>
+        tabBarItemStyle: {
+          height: tabBarHeight,
+        },
+      }}>
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: 'Dashboard',
+          tabBarLabel: 'Home',
+          tabBarIcon: ({ color, focused }) => (
+            <View style={styles.iconContainer}>
+              <FontAwesome name="home" size={iconSize} color={color} />
+            </View>
+          ),
+        }}
+      />
       <Tabs.Screen
         name="food-log"
         options={{
           title: 'Food Log',
-          tabBarIcon: ({ color }) => <TabBarIcon name="cutlery" color={color} />,
           tabBarLabel: 'Food',
+          tabBarIcon: ({ color, focused }) => (
+            <View style={styles.iconContainer}>
+              <FontAwesome name="cutlery" size={iconSize} color={color} />
+            </View>
+          ),
         }}
       />
       <Tabs.Screen
         name="exercise-log"
         options={{
           title: 'Exercise Log',
-          tabBarIcon: ({ color }) => <TabBarIcon name="heartbeat" color={color} />,
-          tabBarLabel: 'Workout', // Changed from 'Exercise' to a shorter word
-        }}
-      />
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Dashboard',
-          tabBarIcon: ({ color }) => (
-            <View style={{
-              position: 'absolute',
-              top: -15, // Reduced from -25 to prevent overlap
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
-              <View style={{
-                backgroundColor: Theme.COLORS.PRIMARY,
-                width: 40, // Reduced from 50
-                height: 40, // Reduced from 50
-                borderRadius: 20,
-                alignItems: 'center',
-                justifyContent: 'center',
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.2,
-                shadowRadius: 4,
-                elevation: 5,
-              }}>
-                <FontAwesome 
-                  name="home" 
-                  size={22} // Reduced from 28
-                  color="#fff" 
-                />
-              </View>
+          tabBarLabel: 'Exercise',
+          tabBarIcon: ({ color, focused }) => (
+            <View style={styles.iconContainer}>
+              <FontAwesome name="heartbeat" size={iconSize} color={color} />
             </View>
           ),
-          tabBarLabel: 'Home',
-          tabBarLabelStyle: {
-            marginTop: 10, // Add some margin to prevent overlap with the icon
-          },
         }}
       />
       <Tabs.Screen
         name="ai-assistant"
         options={{
           title: 'AI Assistant',
-          tabBarIcon: ({ color }) => <TabBarIcon name="comment" color={color} />,
-          tabBarLabel: 'AI', // Shorter label to prevent truncation
+          tabBarLabel: 'AI',
+          tabBarIcon: ({ color, focused }) => (
+            <View style={styles.iconContainer}>
+              <FontAwesome name="comment" size={iconSize} color={color} />
+            </View>
+          ),
         }}
       />
       <Tabs.Screen
         name="account"
         options={{
           title: 'Account',
-          tabBarIcon: ({ color }) => <TabBarIcon name="user" color={color} />,
           tabBarLabel: 'Account',
+          tabBarIcon: ({ color, focused }) => (
+            <View style={styles.iconContainer}>
+              <FontAwesome name="user" size={iconSize} color={color} />
+            </View>
+          ),
         }}
       />
     </Tabs>
   );
 }
+
+// Styles defined outside component to prevent recreation on each render
+const styles = StyleSheet.create({
+  tabBar: {
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+    height: tabBarHeight,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  iconContainer: {
+    marginBottom: -5, // This helps position the icon above the label
+  },
+});
