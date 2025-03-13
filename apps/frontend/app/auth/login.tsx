@@ -89,14 +89,19 @@ export default function LoginScreen() {
       // Extract specific error message from the response if available
       if (error && error.message) {
         const errorMessage = error.message;
+        console.log('Error message:', errorMessage);
         
         // Check for specific error types
         if (errorMessage.toLowerCase().includes('email')) {
           setEmailError(errorMessage);
         } else if (errorMessage.toLowerCase().includes('password')) {
           setPasswordError(errorMessage);
-        } else if (errorMessage.toLowerCase().includes('credentials')) {
-          setPasswordError(errorMessage);
+        } else if (errorMessage.toLowerCase().includes('credentials') || 
+                  errorMessage.toLowerCase().includes('invalid')) {
+          // Show invalid credentials error under the password field
+          setPasswordError('Invalid email or password');
+          // Also set a general error for visibility
+          setGeneralError('Login failed. Please check your credentials and try again.');
         } else {
           setGeneralError(errorMessage);
         }

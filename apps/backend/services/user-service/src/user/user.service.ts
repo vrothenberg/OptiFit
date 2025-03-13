@@ -2,12 +2,9 @@ import { Injectable, NotFoundException, Logger, BadRequestException, ConflictExc
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './entity/user.entity';
-import { UserProfile } from './entity/user-profile.entity';
 import { CircadianQuestionnaire } from './entity/circadian-questionnaire.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { CreateUserProfileDto } from './dto/create-user-profile.dto';
-import { UpdateUserProfileDto } from './dto/update-user-profile.dto';
 import { CircadianQuestionnaireDto } from './dto/circadian-questionnaire.dto';
 import * as bcrypt from 'bcrypt';
 
@@ -16,15 +13,13 @@ export class UserService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-    @InjectRepository(UserProfile)
-    private readonly profileRepository: Repository<UserProfile>,
     @InjectRepository(CircadianQuestionnaire)
     private readonly circadianQuestionnaireRepository: Repository<CircadianQuestionnaire>,
   ) {}
 
   private readonly logger = new Logger(UserService.name);
 
-  // Create a new user and automatically create an associated profile.
+  // Create a new user with all profile data included
   // @deprecated This method uses a legacy endpoint. Please use the two-step registration process with
   // AuthService.register() and AuthService.completeRegistration() instead.
   async create(createUserDto: CreateUserDto): Promise<User> {
@@ -45,7 +40,7 @@ export class UserService {
       }
       
       // Extract password separately so we can hash it
-      const { password, profile: profileData, ...userData } = createUserDto;
+      const { password, ...userData } = createUserDto;
       
       this.logger.debug(`Password to hash: length=${password.length}, first2chars=${password.substring(0, 2)}`);
       
@@ -53,7 +48,7 @@ export class UserService {
       const hashedPassword = await bcrypt.hash(password, 10);
       this.logger.debug(`Password hashed with salt rounds: 10, hash length=${hashedPassword.length}`);
       
-      // Create the user entity with hashed password
+      // Create the user entity with hashed password and all profile data
       const newUser = this.userRepository.create({ 
         ...userData, 
         hashedPassword 
@@ -62,20 +57,6 @@ export class UserService {
       this.logger.debug(`Creating new user with email: ${createUserDto.email}, hashedPassword length: ${newUser.hashedPassword.length}`);
       const savedUser = await this.userRepository.save(newUser);
       this.logger.debug(`User created with ID: ${savedUser.id}, hashedPassword in DB: ${savedUser.hashedPassword.substring(0, 10)}...`);
-    
-      // Create associated profile
-      try {
-        const newProfile = this.profileRepository.create({
-          userId: savedUser.id,
-          ...profileData,
-        });
-        await this.profileRepository.save(newProfile);
-        this.logger.debug(`Profile created for user ID: ${savedUser.id}`);
-      } catch (profileError) {
-        this.logger.error(`Failed to create profile for user ID ${savedUser.id}: ${profileError.message}`);
-        // User was created but profile failed - we should still return the user
-        // Consider adding cleanup logic here if needed
-      }
     
       return savedUser;
     } catch (error) {
@@ -112,11 +93,14 @@ export class UserService {
   }
 
   async update(id: number, updateUserDto: UpdateUserDto): Promise<User> {
-    const result = await this.userRepository.update(id, updateUserDto);
-    if (result.affected === 0) {
-      throw new NotFoundException('User not found');
-    }
-    return await this.findOne(id);
+    // Get the current user
+    const user = await this.findOne(id);
+    
+    // Update the user with the new data
+    Object.assign(user, updateUserDto);
+    
+    // Save the updated user
+    return await this.userRepository.save(user);
   }
 
   async remove(id: number): Promise<void> {
@@ -132,26 +116,6 @@ export class UserService {
       throw new NotFoundException('User not found');
     }
     return user;
-  }
-
-  // PROFILE METHODS
-
-  async getUserProfile(userId: number): Promise<UserProfile> {
-    const profile = await this.profileRepository.findOne({ where: { userId } });
-    if (!profile) {
-      throw new NotFoundException(`Profile not found for user id ${userId}`);
-    }
-    return profile;
-  }
-
-  async updateUserProfile(userId: number, updateUserProfileDto: UpdateUserProfileDto): Promise<UserProfile> {
-    let profile = await this.profileRepository.findOne({ where: { userId } });
-    if (!profile) {
-      profile = this.profileRepository.create({ userId, ...updateUserProfileDto });
-    } else {
-      this.profileRepository.merge(profile, updateUserProfileDto);
-    }
-    return await this.profileRepository.save(profile);
   }
 
   // CIRCADIAN QUESTIONNAIRE METHODS

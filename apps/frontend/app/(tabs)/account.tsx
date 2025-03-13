@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   StyleSheet, 
   View, 
@@ -12,7 +12,7 @@ import {
   ActivityIndicator
 } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 
 import Theme from '@/constants/Theme';
 import { useAuth } from '@/services/auth/AuthContext';
@@ -41,27 +41,46 @@ export default function AccountScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Fetch user data on component mount
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
+  // Function to fetch user data
+  const fetchUserData = useCallback(async (showLoading = true) => {
+    try {
+      if (showLoading) {
         setIsLoading(true);
-        const [user, questionnaireData] = await Promise.all([
-          getCurrentUser(),
-          getLatestCircadianQuestionnaire()
-        ]);
-        setUserData(user);
-        setQuestionnaire(questionnaireData);
-      } catch (err) {
-        console.error('Error fetching user data:', err);
-        setError('Failed to load user data');
-      } finally {
+      }
+      
+      console.log('Fetching user data...');
+      const [user, questionnaireData] = await Promise.all([
+        getCurrentUser(),
+        getLatestCircadianQuestionnaire()
+      ]);
+      
+      console.log('User data fetched:', user);
+      setUserData(user);
+      setQuestionnaire(questionnaireData);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching user data:', err);
+      setError('Failed to load user data');
+    } finally {
+      if (showLoading) {
         setIsLoading(false);
       }
-    };
-    
-    fetchData();
+    }
   }, []);
+  
+  // Fetch user data on component mount
+  useEffect(() => {
+    fetchUserData();
+  }, [fetchUserData]);
+  
+  // Refresh data when the screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      console.log('Account screen focused, refreshing data...');
+      // Don't show loading indicator for better UX when returning from edit profile
+      fetchUserData(false);
+    }, [fetchUserData])
+  );
   
   // Calculate circadian score from questionnaire or use default
   const circadianScore = questionnaire?.chronotype ? 
@@ -283,7 +302,7 @@ export default function AccountScreen() {
             
             <TouchableOpacity 
               style={styles.editProfileButton}
-              onPress={() => setEditProfileModalVisible(true)}
+              onPress={() => router.push('/profile/edit')}
             >
               <Text style={styles.editProfileButtonText}>Edit Profile</Text>
             </TouchableOpacity>

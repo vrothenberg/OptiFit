@@ -4,10 +4,8 @@ import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { UpdateUserProfileDto } from './dto/update-user-profile.dto';
 import { CircadianQuestionnaireDto } from './dto/circadian-questionnaire.dto';
 import { User } from './entity/user.entity';
-import { UserProfile } from './entity/user-profile.entity';
 import { CircadianQuestionnaire } from './entity/circadian-questionnaire.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Public } from '../auth/decorators/public.decorator';
@@ -73,18 +71,18 @@ export class UserController {
   // PROFILE ENDPOINTS
 
   @Get('profile/:userId')
-  @ApiOperation({ summary: 'Get user profile' })
-  @ApiResponse({ status: 200, description: 'Returns the profile of the specified user.', type: UserProfile })
-  async getProfile(@Param('userId', ParseIntPipe) userId: number): Promise<UserProfile> {
-    return await this.userService.getUserProfile(userId);
+  @ApiOperation({ summary: 'Get user profile data' })
+  @ApiResponse({ status: 200, description: 'Returns the user with profile data.', type: User })
+  async getProfile(@Param('userId', ParseIntPipe) userId: number): Promise<User> {
+    return await this.userService.findOne(userId);
   }
 
   @Put('profile/:userId')
   @UsePipes(new CustomValidationPipe())
-  @ApiOperation({ summary: 'Update user profile' })
-  @ApiResponse({ status: 200, description: 'The user profile has been updated.', type: UserProfile })
-  async updateProfile(@Param('userId', ParseIntPipe) userId: number, @Body() updateUserProfileDto: UpdateUserProfileDto): Promise<UserProfile> {
-    return await this.userService.updateUserProfile(userId, updateUserProfileDto);
+  @ApiOperation({ summary: 'Update user profile data' })
+  @ApiResponse({ status: 200, description: 'The user profile data has been updated.', type: User })
+  async updateProfile(@Param('userId', ParseIntPipe) userId: number, @Body() profileData: Partial<User>): Promise<User> {
+    return await this.userService.update(userId, profileData);
   }
 
   // CIRCADIAN QUESTIONNAIRE ENDPOINTS

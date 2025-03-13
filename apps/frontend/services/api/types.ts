@@ -53,11 +53,28 @@ export interface User {
   email: string;
   phoneNumber?: string;
   isActive: boolean;
+  // Profile fields merged into User
+  dateOfBirth?: string;
+  gender?: string;
+  heightCm?: number;
+  weightKg?: number;
+  activityLevel?: string;
+  dietaryPreferences?: any;
+  exercisePreferences?: any;
+  medicalConditions?: string[];
+  supplements?: any;
+  sleepPatterns?: any;
+  stressLevel?: number;
+  nutritionInfo?: any;
+  location?: any;
+  additionalInfo?: any;
   createdAt: string;
   updatedAt: string;
+  // Keep profile for backward compatibility
   profile?: UserProfile;
 }
 
+// Kept for backward compatibility
 export interface UserProfile {
   userId: number;
   dateOfBirth?: string;

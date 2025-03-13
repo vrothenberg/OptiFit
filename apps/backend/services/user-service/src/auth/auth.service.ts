@@ -88,7 +88,7 @@ export class AuthService {
       const user = await this.userService.findOne(userId);
 
       // Update user with profile data
-      const { firstName, lastName, phoneNumber, ...profileData } = completeRegistrationDto;
+      const { firstName, lastName, phoneNumber, dateOfBirth, ...profileData } = completeRegistrationDto;
       
       // Update basic user info
       const updatedUser = await this.userService.update(userId, {
@@ -97,8 +97,14 @@ export class AuthService {
         phoneNumber,
       });
 
-      // Update or create user profile
-      await this.userService.updateUserProfile(userId, profileData);
+      // Convert dateOfBirth string to Date object if it exists
+      const profileDataWithDateConverted = {
+        ...profileData,
+        dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
+      };
+
+      // Update user profile fields directly
+      await this.userService.update(userId, profileDataWithDateConverted);
 
       // Log profile completion activity
       const activityLog = this.activityLogRepository.create({

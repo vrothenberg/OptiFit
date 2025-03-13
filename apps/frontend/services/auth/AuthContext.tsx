@@ -32,7 +32,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isLoggingOut, setIsLoggingOut] = useState<boolean>(false);
-  const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
   const router = useRouter();
   const segments = useSegments();
 
@@ -52,14 +51,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  // Smooth navigation with transition state
-  const navigateWithTransition = async (route: string) => {
-    setIsTransitioning(true);
+  // Simple navigation helper
+  const safeNavigate = (route: string) => {
+    console.log(`Navigating to: ${route}`);
     
-    // Wrap navigation in try/catch to handle potential errors
     try {
-      // Add a slightly longer delay for navigation
-      await new Promise(resolve => setTimeout(resolve, 300));
       router.replace(route as any);
     } catch (error) {
       console.error('Navigation error:', error);
@@ -68,9 +64,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
         window.location.href = route;
       }
     }
-    
-    // Allow time for navigation to complete
-    setTimeout(() => setIsTransitioning(false), 500);
   };
 
   // Function to handle logout with proper state management
@@ -90,24 +83,39 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Force a hard navigation for web
       if (Platform.OS === 'web') {
         console.log('Using window.location for web navigation');
-        // Set a flag in localStorage to indicate we're logging out
-        localStorage.setItem('optifit_logging_out', 'true');
         
-        // Add a small delay to ensure state updates are processed
-        setTimeout(() => {
-          window.location.href = '/';
-        }, 200);
+        // Clear any cached auth data
+        try {
+          // Clear session storage as well
+          sessionStorage.clear();
+          
+          // Clear any auth-related cookies
+          document.cookie.split(';').forEach(cookie => {
+            const [name] = cookie.trim().split('=');
+            if (name.includes('token') || name.includes('auth') || name.includes('session')) {
+              document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+            }
+          });
+        } catch (e) {
+          console.warn('Error clearing browser storage:', e);
+        }
+        
+        // Use replace instead of href to avoid adding to browser history
+        window.location.replace('/');
         return;
       }
       
-      // For native, use router with transition
-      await navigateWithTransition('/');
+      // For native, use router
+      safeNavigate('/');
     } catch (error) {
       console.error('Error during logout:', error);
       // Restore auth state if logout fails
       await checkAuth();
     } finally {
-      setIsLoggingOut(false);
+      // Ensure we reset the logging out state even if there was an error
+      setTimeout(() => {
+        setIsLoggingOut(false);
+      }, 300);
     }
   };
 
@@ -135,9 +143,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // For web, force a hard navigation to ensure a full page reload
       if (Platform.OS === 'web') {
         console.log('Using window.location for web navigation on auth failure');
-        // Set a flag in localStorage to indicate we're logging out due to auth failure
-        localStorage.setItem('optifit_auth_failure', 'true');
-        
         // Force a full page reload by using window.location
         window.location.href = '/';
         return;
@@ -151,20 +156,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return () => unsubscribe();
   }, [router]);
 
-  // Create a ref to track navigation attempts
-  const navigationAttemptedRef = React.useRef(false);
-  
   // Effect to handle navigation based on auth state
+  // This effect only runs after authentication state is fully determined (isLoading is false)
   useEffect(() => {
-    if (isLoading || isTransitioning) return;
+    // Skip if still loading auth state
+    if (isLoading) return;
     
-    // If we've already attempted navigation in this render cycle, don't try again
-    if (navigationAttemptedRef.current) return;
-
     const inAuthGroup = segments[0] === 'auth';
     const inProtectedGroup = segments[0] === '(tabs)';
     const inDevTools = segments[0] === 'dev-tools';
-    // Fix TypeScript error with proper type assertion
     const segmentsLength = segments.length as number;
     const inRootRoute = segmentsLength === 0 || (
       segmentsLength === 1 && 
@@ -181,39 +181,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
       inRootRoute
     });
 
-    // Set navigation flag to true to prevent multiple attempts
-    navigationAttemptedRef.current = true;
-
-    try {
-      if (!isAuthenticated && inProtectedGroup) {
-        // Redirect to landing page if user is not authenticated and tries to access protected routes
-        console.log('Not authenticated, redirecting from protected route to landing page');
-        navigateWithTransition('/');
-      } else if (isAuthenticated && inAuthGroup) {
-        // Redirect to home if user is authenticated and tries to access auth routes
-        console.log('Authenticated, redirecting from auth route to tabs');
-        navigateWithTransition('/(tabs)');
-      } else if (isAuthenticated && inRootRoute) {
-        // Redirect to tabs if user is authenticated and at the root route
-        console.log('Authenticated at root route, redirecting to tabs');
-        navigateWithTransition('/(tabs)');
-      }
-    } catch (error) {
-      console.error('Navigation error in auth effect:', error);
-      // Reset the navigation flag if there was an error
-      navigationAttemptedRef.current = false;
+    // Simple navigation rules
+    if (!isAuthenticated && inProtectedGroup) {
+      // Redirect to landing page if user is not authenticated and tries to access protected routes
+      console.log('Not authenticated, redirecting from protected route to landing page');
+      safeNavigate('/');
+    } else if (isAuthenticated && inAuthGroup) {
+      // Redirect to home if user is authenticated and tries to access auth routes
+      console.log('Authenticated, redirecting from auth route to tabs');
+      safeNavigate('/(tabs)');
+    } else if (isAuthenticated && inRootRoute) {
+      // Redirect to tabs if user is authenticated and at the root route
+      console.log('Authenticated at root route, redirecting to tabs');
+      safeNavigate('/(tabs)');
     }
+  }, [isAuthenticated, segments, isLoading, router]);
 
-    // Reset the navigation flag after a delay
-    const resetTimer = setTimeout(() => {
-      navigationAttemptedRef.current = false;
-    }, 1000);
-
-    return () => clearTimeout(resetTimer);
-  }, [isAuthenticated, segments, isLoading, isTransitioning]);
-
-  // Provide a loading screen during authentication checks, transitions, or logout
-  if (isLoading || isTransitioning || isLoggingOut) {
+  // Provide a loading screen during authentication checks or logout
+  if (isLoading || isLoggingOut) {
     return <AppLoadingScreen />;
   }
 
