@@ -21,6 +21,7 @@ import { FontAwesome } from '@expo/vector-icons';
 
 import Theme from '@/constants/Theme';
 import { useAuth } from '@/services/auth/AuthContext';
+import DatePicker from '@/components/DatePicker';
 
 export default function ProfileSetupScreen() {
   const router = useRouter();
@@ -28,7 +29,7 @@ export default function ProfileSetupScreen() {
   
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [age, setAge] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
   const [gender, setGender] = useState('');
   const [height, setHeight] = useState('');
   const [weight, setWeight] = useState('');
@@ -38,7 +39,7 @@ export default function ProfileSetupScreen() {
   // Validation states
   const [firstNameError, setFirstNameError] = useState<string | null>(null);
   const [lastNameError, setLastNameError] = useState<string | null>(null);
-  const [ageError, setAgeError] = useState<string | null>(null);
+  const [dateOfBirthError, setDateOfBirthError] = useState<string | null>(null);
   const [heightError, setHeightError] = useState<string | null>(null);
   const [weightError, setWeightError] = useState<string | null>(null);
   const [generalError, setGeneralError] = useState<string | null>(null);
@@ -55,9 +56,9 @@ export default function ProfileSetupScreen() {
   }, [lastName]);
   
   useEffect(() => {
-    setAgeError(null);
+    setDateOfBirthError(null);
     setGeneralError(null);
-  }, [age]);
+  }, [dateOfBirth]);
   
   useEffect(() => {
     setHeightError(null);
@@ -164,7 +165,7 @@ export default function ProfileSetupScreen() {
     // Reset all errors
     setFirstNameError(null);
     setLastNameError(null);
-    setAgeError(null);
+    setDateOfBirthError(null);
     setHeightError(null);
     setWeightError(null);
     setGeneralError(null);
@@ -182,11 +183,16 @@ export default function ProfileSetupScreen() {
       isValid = false;
     }
     
-    if (!age) {
-      setAgeError('Age is required');
+    if (!dateOfBirth) {
+      setDateOfBirthError('Date of birth is required');
       isValid = false;
-    } else if (!validateNumeric(age, 'Age', setAgeError)) {
-      isValid = false;
+    } else {
+      try {
+        new Date(dateOfBirth);
+      } catch (e) {
+        setDateOfBirthError('Invalid date format');
+        isValid = false;
+      }
     }
     
     // Optional fields validation
@@ -209,7 +215,7 @@ export default function ProfileSetupScreen() {
       const profileData = {
         firstName,
         lastName,
-        age: parseInt(age),
+        dateOfBirth,
         // Add optional fields if they have values
         ...(gender && { gender }),
         ...(height && { heightCm: parseInt(height) }),
@@ -232,8 +238,8 @@ export default function ProfileSetupScreen() {
           setFirstNameError(error.message);
         } else if (error.message.includes('last') || error.message.includes('lastName')) {
           setLastNameError(error.message);
-        } else if (error.message.includes('age')) {
-          setAgeError(error.message);
+        } else if (error.message.includes('date') || error.message.includes('birth')) {
+          setDateOfBirthError(error.message);
         } else if (error.message.includes('height')) {
           setHeightError(error.message);
         } else if (error.message.includes('weight')) {
@@ -319,19 +325,16 @@ export default function ProfileSetupScreen() {
             </View>
           </View>
 
-          <View style={styles.inputRow}>
-            <View style={[styles.inputGroup, styles.inputHalf]}>
-              <Text style={styles.inputLabel}>Age <Text style={styles.required}>*</Text></Text>
-              <TextInput
-                style={[styles.input, ageError && styles.inputError]}
-                placeholder="Age"
-                placeholderTextColor={Theme.COLORS.PLACEHOLDER}
-                value={age}
-                onChangeText={setAge}
-                keyboardType="number-pad"
-              />
-              {ageError && <Text style={styles.errorText}>{ageError}</Text>}
-            </View>
+            <View style={styles.inputRow}>
+              <View style={[styles.inputGroup, styles.inputHalf]}>
+                <Text style={styles.inputLabel}>Date of Birth <Text style={styles.required}>*</Text></Text>
+                <DatePicker
+                  value={dateOfBirth}
+                  onChange={setDateOfBirth}
+                  placeholder="Select date of birth"
+                />
+                {dateOfBirthError && <Text style={styles.errorText}>{dateOfBirthError}</Text>}
+              </View>
             
             <View style={[styles.inputGroup, styles.inputHalf]}>
               <Text style={styles.inputLabel}>Gender</Text>

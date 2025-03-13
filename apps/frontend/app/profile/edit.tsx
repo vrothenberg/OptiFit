@@ -20,6 +20,7 @@ import { FontAwesome } from '@expo/vector-icons';
 import Theme from '@/constants/Theme';
 import { useAuth } from '@/services/auth/AuthContext';
 import { User, UserProfile } from '@/services/api/types';
+import DatePicker from '@/components/DatePicker';
 
 export default function EditProfileScreen() {
   const router = useRouter();
@@ -27,7 +28,7 @@ export default function EditProfileScreen() {
   
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [age, setAge] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
   const [gender, setGender] = useState('');
   const [height, setHeight] = useState('');
   const [weight, setWeight] = useState('');
@@ -38,7 +39,7 @@ export default function EditProfileScreen() {
   // Validation states
   const [firstNameError, setFirstNameError] = useState<string | null>(null);
   const [lastNameError, setLastNameError] = useState<string | null>(null);
-  const [ageError, setAgeError] = useState<string | null>(null);
+  const [dateOfBirthError, setDateOfBirthError] = useState<string | null>(null);
   const [heightError, setHeightError] = useState<string | null>(null);
   const [weightError, setWeightError] = useState<string | null>(null);
   const [generalError, setGeneralError] = useState<string | null>(null);
@@ -55,9 +56,9 @@ export default function EditProfileScreen() {
   }, [lastName]);
   
   useEffect(() => {
-    setAgeError(null);
+    setDateOfBirthError(null);
     setGeneralError(null);
-  }, [age]);
+  }, [dateOfBirth]);
   
   useEffect(() => {
     setHeightError(null);
@@ -121,22 +122,13 @@ export default function EditProfileScreen() {
           setWeight('');
         }
         
-        // Calculate age from dateOfBirth if available
+        // Set dateOfBirth if available
         if (user.dateOfBirth) {
-          const birthDate = new Date(user.dateOfBirth);
-          const today = new Date();
-          let calculatedAge = today.getFullYear() - birthDate.getFullYear();
-          const monthDiff = today.getMonth() - birthDate.getMonth();
-          
-          if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-            calculatedAge--;
-          }
-          
-          console.log('Setting age from dateOfBirth:', calculatedAge);
-          setAge(calculatedAge.toString());
+          console.log('Setting dateOfBirth:', user.dateOfBirth);
+          setDateOfBirth(user.dateOfBirth);
         } else {
           console.log('No dateOfBirth data available');
-          setAge('');
+          setDateOfBirth('');
         }
       } catch (error) {
         console.error('Error loading user data:', error);
@@ -175,7 +167,7 @@ export default function EditProfileScreen() {
     // Reset all errors and success message
     setFirstNameError(null);
     setLastNameError(null);
-    setAgeError(null);
+    setDateOfBirthError(null);
     setHeightError(null);
     setWeightError(null);
     setGeneralError(null);
@@ -194,9 +186,14 @@ export default function EditProfileScreen() {
       isValid = false;
     }
     
-    // Optional fields validation
-    if (age && !validateNumeric(age, 'Age', setAgeError)) {
-      isValid = false;
+    // Optional date of birth validation
+    if (dateOfBirth) {
+      try {
+        new Date(dateOfBirth);
+      } catch (e) {
+        setDateOfBirthError('Invalid date format');
+        isValid = false;
+      }
     }
     
     if (height && !validateNumeric(height, 'Height', setHeightError)) {
@@ -231,6 +228,10 @@ export default function EditProfileScreen() {
       
       if (weight) {
         userData.weightKg = parseInt(weight);
+      }
+      
+      if (dateOfBirth) {
+        userData.dateOfBirth = dateOfBirth;
       }
       
       // Update user profile
@@ -350,16 +351,13 @@ export default function EditProfileScreen() {
 
             <View style={styles.inputRow}>
               <View style={[styles.inputGroup, styles.inputHalf]}>
-                <Text style={styles.inputLabel}>Age</Text>
-                <TextInput
-                  style={[styles.input, ageError && styles.inputError]}
-                  placeholder="Age"
-                  placeholderTextColor={Theme.COLORS.PLACEHOLDER}
-                  value={age}
-                  onChangeText={setAge}
-                  keyboardType="number-pad"
+                <Text style={styles.inputLabel}>Date of Birth</Text>
+                <DatePicker
+                  value={dateOfBirth}
+                  onChange={setDateOfBirth}
+                  placeholder="Select date of birth"
                 />
-                {ageError && <Text style={styles.errorText}>{ageError}</Text>}
+                {dateOfBirthError && <Text style={styles.errorText}>{dateOfBirthError}</Text>}
               </View>
               
               <View style={[styles.inputGroup, styles.inputHalf]}>
