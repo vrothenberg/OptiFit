@@ -241,8 +241,6 @@ export default function AccountScreen() {
       {/* Custom header */}
       <AppHeader 
         title="Account" 
-        showSettingsButton={true}
-        showAccountButton={false}
       />
       
       {isLoading ? (

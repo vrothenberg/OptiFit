@@ -20,10 +20,13 @@ export default function LandingScreen() {
     // Skip if loading
     if (isLoading) return;
     
-    // If authenticated, navigate to tabs (home)
+    // If authenticated, navigate to tabs home
     if (isAuthenticated) {
-      console.log('User is authenticated, redirecting to tabs');
-      router.replace('/(tabs)');
+      console.log('User is authenticated, redirecting to home');
+      // Use setTimeout to ensure navigation happens after layout is mounted
+      setTimeout(() => {
+        router.replace('/(tabs)/home');
+      }, 0);
     }
   }, [isAuthenticated, isLoading, router]);
   

@@ -78,7 +78,7 @@ export default function ProfileSetupScreen() {
           
           // If user has a complete profile (not the default placeholder values)
           if (user.firstName !== 'Pending' && user.lastName !== 'Registration') {
-            router.replace('/(tabs)');
+            router.replace('/(tabs)/home' as any);
           }
         }
       } catch (error) {

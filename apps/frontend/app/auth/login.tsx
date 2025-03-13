@@ -45,7 +45,7 @@ export default function LoginScreen() {
   // Redirect to tabs if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      router.replace('/(tabs)');
+      router.replace('/(tabs)/home' as any);
     }
   }, [isAuthenticated, router]);
 
@@ -124,7 +124,7 @@ export default function LoginScreen() {
       // For demo purposes, we'll just navigate to the tabs after a delay
       // In a real app, this would happen after the OAuth flow completes
       setTimeout(() => {
-        router.push('/(tabs)');
+        router.push('/(tabs)/home' as any);
       }, 1500);
     } catch (error: any) {
       setGeneralError('Failed to login with Google. Please try again.');

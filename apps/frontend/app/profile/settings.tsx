@@ -16,6 +16,7 @@ import Theme from '@/constants/Theme';
 import AppHeader from '@/components/AppHeader';
 import ConfirmationModal from '@/components/ConfirmationModal';
 
+
 export default function SettingsScreen() {
   const router = useRouter();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
@@ -27,6 +28,8 @@ export default function SettingsScreen() {
   const [contactUsModalVisible, setContactUsModalVisible] = useState(false);
   const [privacyPolicyModalVisible, setPrivacyPolicyModalVisible] = useState(false);
   const [termsModalVisible, setTermsModalVisible] = useState(false);
+
+  console.log("Settings Screen");
 
   return (
     <View style={styles.container}>
@@ -78,7 +81,6 @@ export default function SettingsScreen() {
       {/* Custom header */}
       <AppHeader 
         title="Settings" 
-        showSettingsButton={false}
       />
       
       <ScrollView style={styles.scrollContainer}>

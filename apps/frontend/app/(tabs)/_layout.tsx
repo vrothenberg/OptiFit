@@ -26,7 +26,7 @@ type FontAwesomeIconName = React.ComponentProps<typeof FontAwesome>['name'];
 // Tab configuration for consistent ordering and properties
 const TAB_CONFIG = [
   {
-    name: 'index',
+    name: 'home',
     title: 'OptiFit',
     label: 'Home',
     icon: 'home' as FontAwesomeIconName,
@@ -202,7 +202,7 @@ function TabNavigator() {
           header: ({ navigation, route, options }) => (
             <AppHeader 
               title={tab?.title || 'OptiFit'} 
-              titleSize={route.name === 'index' ? 24 : 20}
+              titleSize={route.name === 'home' ? 24 : 20}
             />
           ),
           // Add padding between header and content

@@ -173,12 +173,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const inProtectedGroup = segments[0] === '(tabs)';
     const inDevTools = segments[0] === 'dev-tools';
     const segmentsLength = segments.length as number;
-    const inRootRoute = segmentsLength === 0 || (
-      segmentsLength === 1 && 
-      segments[0] !== 'auth' && 
-      segments[0] !== '(tabs)' &&
-      segments[0] !== 'dev-tools'
-    );
+  const inRootRoute = segmentsLength === 0 || (
+    segmentsLength === 1 && 
+    segments[0] !== 'auth' && 
+    segments[0] !== '(tabs)' &&
+    segments[0] !== 'dev-tools' &&
+    segments[0] !== 'profile'  // Exclude profile pages from root route check
+  );
 
     console.log('Auth navigation effect triggered:', { 
       isAuthenticated, 
@@ -196,11 +197,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } else if (isAuthenticated && inAuthGroup) {
       // Redirect to home if user is authenticated and tries to access auth routes
       console.log('Authenticated, redirecting from auth route to tabs');
-      safeNavigate('/(tabs)');
+      safeNavigate('/(tabs)/home' as any);
     } else if (isAuthenticated && inRootRoute) {
       // Redirect to tabs if user is authenticated and at the root route
       console.log('Authenticated at root route, redirecting to tabs');
-      safeNavigate('/(tabs)');
+      safeNavigate('/(tabs)/home' as any);
     }
   }, [isAuthenticated, segments, isLoading, router]);
 

@@ -19,6 +19,18 @@ export {
 export const unstable_settings = {
   // Ensure that reloading on `/modal` keeps a back button present.
   initialRouteName: 'index',
+  // Define all routes that should be available
+  routes: {
+    'index': 'index',
+    '(tabs)': '(tabs)',
+    'auth': 'auth',
+    'onboarding': 'onboarding',
+    'modal': 'modal',
+    'dev-tools': 'dev-tools',
+    'settings': 'profile/settings',
+    'profile/account': 'profile/account',
+    'profile/edit': 'profile/edit',
+  },
 };
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -70,6 +82,7 @@ function RootLayoutNav() {
       />
       <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
       <Stack.Screen name="dev-tools" />
+      <Stack.Screen name="settings" />
     </Stack>
   );
 

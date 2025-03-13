@@ -8,7 +8,7 @@ import {
   StatusBar
 } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, usePathname } from 'expo-router';
 
 import Theme from '@/constants/Theme';
 
@@ -32,14 +32,25 @@ export default function AppHeader({
   onAccountPress
 }: AppHeaderProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  
+  // Check if we're on a profile page
+  const isProfilePage = pathname?.startsWith('/profile');
+  // Check if we're specifically on the account page
+  const isAccountPage = pathname === '/profile/account';
+  // Check if we're on the settings page
+  const isSettingsPage = pathname === '/profile/settings';
 
   // Default handlers if not provided
   const handleSettingsPress = () => {
     if (onSettingsPress) {
+      console.log("Calling onSettingsPress...");
       onSettingsPress();
     } else {
       // Navigate to settings page
-      router.push('/settings' as any);
+      console.log('Navigating to settings page...');
+      // Use replace instead of push to avoid navigation stack issues
+      router.replace('/profile/settings');
     }
   };
 
@@ -48,7 +59,8 @@ export default function AppHeader({
       onAccountPress();
     } else {
       // Navigate to account page
-      router.push('/profile/account');
+      // Use replace instead of push to avoid navigation stack issues
+      router.replace('/profile/account');
     }
   };
 
@@ -59,25 +71,31 @@ export default function AppHeader({
       
       {/* Right: Action Buttons */}
       <View style={styles.headerActions}>
-        {showSettingsButton && (
-          <TouchableOpacity 
-            style={styles.headerButton} 
-            onPress={handleSettingsPress}
-            hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
-          >
-            <FontAwesome name="gear" size={22} color="#888888" />
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity 
+          style={styles.headerButton} 
+          onPress={handleSettingsPress}
+          hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+        >
+          <FontAwesome 
+            name="gear" 
+            size={24} 
+            color={isSettingsPage ? Theme.COLORS.PRIMARY : "#888888"} 
+            accessibilityLabel="Settings"
+          />
+        </TouchableOpacity>
         
-        {showAccountButton && (
-          <TouchableOpacity 
-            style={styles.headerButton} 
-            onPress={handleAccountPress}
-            hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
-          >
-            <FontAwesome name="user-circle" size={22} color="#888888" />
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity 
+          style={styles.headerButton} 
+          onPress={handleAccountPress}
+          hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+        >
+          <FontAwesome 
+            name="user-circle" 
+            size={24} 
+            color={isAccountPage ? Theme.COLORS.PRIMARY : "#888888"} 
+            accessibilityLabel="Account"
+          />
+        </TouchableOpacity>
       </View>
     </View>
   );
