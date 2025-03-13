@@ -143,13 +143,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // For web, force a hard navigation to ensure a full page reload
       if (Platform.OS === 'web') {
         console.log('Using window.location for web navigation on auth failure');
+        
+        // Store auth failure flag for landing page
+        localStorage.setItem('optifit_auth_failure', 'true');
+        
         // Force a full page reload by using window.location
         window.location.href = '/';
         return;
       } else {
         // For native, show a notification and use router
-        Alert.alert('Session Expired', 'Your session has expired. You will be redirected to the login page.');
-        router.replace('/');
+        Alert.alert(
+          'Session Expired', 
+          'Your session has expired. You will be redirected to the login page.',
+          [{ text: 'OK', onPress: () => router.replace('/') }]
+        );
       }
     });
     

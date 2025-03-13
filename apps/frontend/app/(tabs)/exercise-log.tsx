@@ -222,9 +222,8 @@ export default function ExerciseLogScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header with Add Button */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Exercise Log</Text>
+      {/* Custom header with Add Button */}
+      <View style={styles.headerContainer}>
         <TouchableOpacity 
           style={styles.addButton}
           onPress={() => setShowAddModal(true)}
@@ -462,29 +461,25 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
-  header: {
+  headerContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     alignItems: 'center',
     paddingHorizontal: 15,
     paddingVertical: 10,
-    backgroundColor: Theme.COLORS.PRIMARY,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: Theme.COLORS.WHITE,
+    backgroundColor: '#FFFFFF',
+    marginTop: -10, // Adjust to align with the AppHeader
   },
   addButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: Theme.COLORS.PRIMARY,
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 20,
   },
   addButtonText: {
-    color: Theme.COLORS.WHITE,
+    color: '#FFFFFF',
     fontWeight: '600',
     marginLeft: 5,
   },

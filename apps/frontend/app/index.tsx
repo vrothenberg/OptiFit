@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Dimensions, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -11,95 +11,21 @@ import AppLoadingScreen from '@/components/AppLoadingScreen';
 
 const { width, height } = Dimensions.get('window');
 
-// Navigation constants
-const NAVIGATION_LOCK_TIMEOUT = 2000;
-const MAX_NAVIGATION_ATTEMPTS = 3;
-const NAVIGATION_DEBOUNCE_TIME = 1000;
-
 export default function LandingScreen() {
   const router = useRouter();
   const { isAuthenticated, isLoading } = useAuth();
   
-  // Infinite loop protection
-  const navigationLockRef = useRef(false);
-  const navigationAttemptsRef = useRef(0);
-  const lastNavigationTimeRef = useRef(0);
-  
-  // Function to safely navigate with infinite loop protection
-  const safeNavigate = useCallback((route: string) => {
-    // Skip if navigation is locked
-    if (navigationLockRef.current) {
-      console.log(`Navigation locked, skipping navigation to: ${route}`);
-      return false;
-    }
-    
-    // Check for too many attempts in a short time
-    const now = Date.now();
-    if (now - lastNavigationTimeRef.current < NAVIGATION_DEBOUNCE_TIME) {
-      navigationAttemptsRef.current += 1;
-      
-      if (navigationAttemptsRef.current >= MAX_NAVIGATION_ATTEMPTS) {
-        console.warn(`Too many navigation attempts (${navigationAttemptsRef.current}), blocking navigation`);
-        
-        // For web, force a reset if we detect an infinite loop
-        if (Platform.OS === 'web') {
-          console.log('Forcing page reset due to potential infinite loop');
-          localStorage.setItem('optifit_force_reset', 'true');
-          window.location.reload();
-          return false;
-        }
-        
-        // Reset after a longer timeout
-        setTimeout(() => {
-          navigationAttemptsRef.current = 0;
-          navigationLockRef.current = false;
-        }, NAVIGATION_LOCK_TIMEOUT * 2);
-        
-        return false;
-      }
-    } else {
-      // Reset counter if it's been a while
-      navigationAttemptsRef.current = 0;
-    }
-    
-    // Update last attempt time
-    lastNavigationTimeRef.current = now;
-    
-    // Lock navigation
-    navigationLockRef.current = true;
-    
-    console.log(`Navigating to: ${route}`);
-    
-    // Perform the navigation
-    setTimeout(() => {
-      router.replace(route as any);
-      
-      // Unlock after a delay
-      setTimeout(() => {
-        navigationLockRef.current = false;
-      }, NAVIGATION_LOCK_TIMEOUT);
-    }, 100);
-    
-    return true;
-  }, [router]);
-  
-  // Redirect to tabs if already authenticated
+  // Redirect to home if already authenticated
   useEffect(() => {
     // Skip if loading
     if (isLoading) return;
     
-    // Check if we're in a forced reset state (for web)
-    if (Platform.OS === 'web' && localStorage.getItem('optifit_force_reset')) {
-      console.log('Force reset detected, clearing flags and staying on landing page');
-      localStorage.removeItem('optifit_force_reset');
-      return;
-    }
-    
-    // If authenticated, navigate to tabs
+    // If authenticated, navigate to tabs (home)
     if (isAuthenticated) {
-      safeNavigate('/(tabs)');
+      console.log('User is authenticated, redirecting to tabs');
+      router.replace('/(tabs)');
     }
-  }, [isAuthenticated, isLoading, safeNavigate]);
+  }, [isAuthenticated, isLoading, router]);
   
   // Check if we're coming from a logout or token invalidation (for web)
   useEffect(() => {

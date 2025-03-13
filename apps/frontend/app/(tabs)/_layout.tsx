@@ -15,6 +15,7 @@ import Theme from '@/constants/Theme';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useClientOnlyValue } from '@/components/useClientOnlyValue';
 import { ProtectedRoute } from '@/services/auth/ProtectedRoute';
+import AppHeader from '@/components/AppHeader';
 
 // Screen width threshold to determine layout style (vertical vs horizontal)
 const LAYOUT_THRESHOLD = 600; // Tablets typically have width > 600
@@ -26,7 +27,7 @@ type FontAwesomeIconName = React.ComponentProps<typeof FontAwesome>['name'];
 const TAB_CONFIG = [
   {
     name: 'index',
-    title: 'Dashboard',
+    title: 'OptiFit',
     label: 'Home',
     icon: 'home' as FontAwesomeIconName,
   },
@@ -49,10 +50,10 @@ const TAB_CONFIG = [
     icon: 'comment' as FontAwesomeIconName,
   },
   {
-    name: 'account',
-    title: 'Account',
-    label: 'Account',
-    icon: 'user' as FontAwesomeIconName,
+    name: 'learn',
+    title: 'Knowledge Base',
+    label: 'Learn',
+    icon: 'book' as FontAwesomeIconName,
   },
 ];
 
@@ -121,14 +122,11 @@ function CustomTabButton({
     // Subtract any padding that might be applied to the container
     const verticalPadding = 0; // Total vertical padding (top + bottom)
     const availableHeight = tabBarHeight - verticalPadding;
-    const topMargin = Math.max(0, (availableHeight - totalContentHeight));
+    const topMargin = Math.max(0, (availableHeight - totalContentHeight) / 2);
 
     return (
       <View style={styles.verticalTabButton}>
-        <View style={[
-          styles.verticalTabContent,
-          { marginTop: topMargin }
-        ]}>
+        <View style={styles.verticalTabContent}>
           <FontAwesome name={icon} size={iconSize} color={color} />
           <Text style={[styles.tabLabel, { color, fontSize, marginTop: spacingHeight }]}>
             {label}
@@ -169,39 +167,50 @@ function TabNavigator() {
   
   return (
     <Tabs
-      screenOptions={({ route }) => ({
-        tabBarActiveTintColor: Theme.COLORS.PRIMARY,
-        tabBarInactiveTintColor: '#888',
-        tabBarStyle: {
-          backgroundColor: '#fff',
-          borderTopWidth: 1,
-          borderTopColor: '#e0e0e0',
-          height: tabBarHeight,
-          paddingTop: 0,
-          paddingBottom: 0,
-          ...Platform.select({
-            ios: {
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: -1 },
-              shadowOpacity: 0.1,
-              shadowRadius: 4,
-            },
-            android: {
-              elevation: 8,
-            },
-          }),
-        },
-        // Hide the default label since we're using custom tab bar buttons
-        tabBarLabel: () => null,
-        tabBarItemStyle: {
-          height: tabBarHeight,
-        },
-        headerStyle: {
-          backgroundColor: Theme.COLORS.PRIMARY,
-        },
-        headerTintColor: '#fff',
-        headerShown: true,
-      })}>
+      screenOptions={({ route }) => {
+        // Get the tab configuration for the current route
+        const tab = TAB_CONFIG.find(tab => tab.name === route.name);
+        
+        return {
+          tabBarActiveTintColor: Theme.COLORS.PRIMARY,
+          tabBarInactiveTintColor: '#888',
+          tabBarStyle: {
+            backgroundColor: '#fff',
+            borderTopWidth: 1,
+            borderTopColor: '#e0e0e0',
+            height: tabBarHeight,
+            paddingTop: 0,
+            paddingBottom: 0,
+            ...Platform.select({
+              ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: -1 },
+                shadowOpacity: 0.1,
+                shadowRadius: 4,
+              },
+              android: {
+                elevation: 8,
+              },
+            }),
+          },
+          // Hide the default label since we're using custom tab bar buttons
+          tabBarLabel: () => null,
+          tabBarItemStyle: {
+            height: tabBarHeight,
+          },
+          // Use custom header with AppHeader component
+          header: ({ navigation, route, options }) => (
+            <AppHeader 
+              title={tab?.title || 'OptiFit'} 
+              titleSize={route.name === 'index' ? 24 : 20}
+            />
+          ),
+          // Add padding between header and content
+          contentStyle: {
+            paddingTop: 10,
+          },
+        };
+      }}>
       
       {TAB_CONFIG.map((tab) => (
         <Tabs.Screen
