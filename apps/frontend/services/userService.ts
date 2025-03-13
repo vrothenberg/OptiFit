@@ -13,7 +13,8 @@ import {
   RegisterRequest,
   UserPreferences,
   CircadianQuestionnaire,
-  SuccessResponse
+  SuccessResponse,
+  DayStreakResponse
 } from './api/types';
 
 /**
@@ -365,6 +366,21 @@ export async function getLatestCircadianQuestionnaire(): Promise<CircadianQuesti
 export function initiateGoogleLogin(): void {
   console.log('Google login initiated (placeholder)');
   // This is just a placeholder - in a real app, this would initiate the OAuth flow
+}
+
+/**
+ * Get the current user's day streak
+ * @returns The day streak count
+ */
+export async function getUserDayStreak(): Promise<number> {
+  try {
+    const response = await apiClient.userServiceGet<DayStreakResponse>('/auth/activity/streak');
+    return response.data.streak;
+  } catch (error) {
+    console.error('Error getting user day streak:', error);
+    // Return 0 as a fallback
+    return 0;
+  }
 }
 
 /**

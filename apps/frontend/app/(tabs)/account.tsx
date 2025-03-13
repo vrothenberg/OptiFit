@@ -16,7 +16,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 
 import Theme from '@/constants/Theme';
 import { useAuth } from '@/services/auth/AuthContext';
-import { getCurrentUser, getLatestCircadianQuestionnaire } from '@/services/userService';
+import { getCurrentUser, getLatestCircadianQuestionnaire, getUserDayStreak } from '@/services/userService';
 import { User, CircadianQuestionnaire } from '@/services/api/types';
 import ConfirmationModal from '@/components/ConfirmationModal';
 
@@ -38,6 +38,7 @@ export default function AccountScreen() {
   // State for user data
   const [userData, setUserData] = useState<User | null>(null);
   const [questionnaire, setQuestionnaire] = useState<CircadianQuestionnaire | null>(null);
+  const [dayStreak, setDayStreak] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -49,14 +50,17 @@ export default function AccountScreen() {
       }
       
       console.log('Fetching user data...');
-      const [user, questionnaireData] = await Promise.all([
+      const [user, questionnaireData, streak] = await Promise.all([
         getCurrentUser(),
-        getLatestCircadianQuestionnaire()
+        getLatestCircadianQuestionnaire(),
+        getUserDayStreak()
       ]);
       
       console.log('User data fetched:', user);
+      console.log('Day streak fetched:', streak);
       setUserData(user);
       setQuestionnaire(questionnaireData);
+      setDayStreak(streak);
       setError(null);
     } catch (err) {
       console.error('Error fetching user data:', err);
@@ -293,8 +297,7 @@ export default function AccountScreen() {
               <View style={styles.statDivider} />
               <View style={styles.statItem}>
                 <Text style={styles.statValue}>
-                  {/* Placeholder for streak - not yet implemented in backend */}
-                  {Math.floor(Math.random() * 20) + 1}
+                  {dayStreak}
                 </Text>
                 <Text style={styles.statLabel}>Day Streak</Text>
               </View>

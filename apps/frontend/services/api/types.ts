@@ -311,3 +311,9 @@ export interface DateRangeParams {
 export interface SuccessResponse {
   success: boolean;
 }
+
+// User Activity
+
+export interface DayStreakResponse {
+  streak: number;
+}

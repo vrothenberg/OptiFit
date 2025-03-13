@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Get, UnauthorizedException, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Get, UnauthorizedException, HttpCode, HttpStatus, Logger } from '@nestjs/common';
 import { Public } from './decorators/public.decorator';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
@@ -79,6 +79,16 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Profile retrieved successfully' })
   getProfile(@CurrentUser() user: User) {
     return user;
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('activity/streak')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get current user day streak' })
+  @ApiResponse({ status: 200, description: 'Returns the user day streak' })
+  async getUserDayStreak(@CurrentUser() user: User): Promise<{ streak: number }> {
+    Logger.log(`Getting day streak for user ID: ${user.id}`);
+    return await this.authService.calculateUserDayStreak(user.id);
   }
 
   // Debug endpoint - remove in production
