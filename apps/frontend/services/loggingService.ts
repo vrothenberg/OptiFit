@@ -165,6 +165,57 @@ export async function getCurrentWeekFoodSummary(): Promise<FoodWeeklySummary> {
   }
 }
 
+// Food Search
+
+/**
+ * Search for food items
+ * @param query Search query
+ * @returns Food search results
+ */
+export async function searchFood(query: string): Promise<any> {
+  try {
+    const response = await apiClient.loggingServiceGet('/food/search', { 
+      params: { query } 
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error searching for food:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get autocomplete suggestions for food search
+ * @param query Search query
+ * @returns Autocomplete suggestions
+ */
+export async function getFoodAutocompleteSuggestions(query: string): Promise<string[]> {
+  try {
+    const response = await apiClient.loggingServiceGet<string[]>('/food/autocomplete', { 
+      params: { query } 
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error getting autocomplete suggestions:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get nutrition data for a food item
+ * @param foodId Food ID
+ * @returns Nutrition data
+ */
+export async function getFoodNutrition(foodId: string): Promise<any> {
+  try {
+    const response = await apiClient.loggingServiceGet(`/food/nutrition/${foodId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error getting nutrition data:', error);
+    throw error;
+  }
+}
+
 // Exercise Logging
 
 /**

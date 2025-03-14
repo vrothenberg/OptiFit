@@ -16,5 +16,13 @@ export default () => ({
   edamam: {
     appId: process.env.EDAMAM_APP_ID || '',
     appKey: process.env.EDAMAM_APP_KEY || '',
+    food: {
+      appId: process.env.EDAMAM_FOOD_APP_ID || '',
+      appKey: process.env.EDAMAM_FOOD_APP_KEY || '',
+    },
+    nutrition: {
+      appId: process.env.EDAMAM_NUTRITION_APP_ID || '',
+      appKey: process.env.EDAMAM_NUTRITION_APP_KEY || '',
+    }
   },
 });

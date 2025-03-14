@@ -10,12 +10,12 @@ import {
   ScrollView
 } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, Stack } from 'expo-router';
 import { invalidateToken, forceLogout } from '@/services/userService';
 import Theme from '@/constants/Theme';
 import ConfirmationModal from '@/components/ConfirmationModal';
 
-export default function DevToolsScreen() {
+export default function AuthToolsScreen() {
   const router = useRouter();
   const [isProcessing, setIsProcessing] = useState(false);
   const [corruptTokenModalVisible, setCorruptTokenModalVisible] = useState(false);
@@ -88,13 +88,15 @@ export default function DevToolsScreen() {
     }
   };
 
-  // Navigate back to account screen
+  // Navigate back to dev tools index
   const navigateBack = () => {
-    router.back();
+    router.push('/dev-tools' as any);
   };
 
   return (
     <View style={styles.container}>
+      <Stack.Screen options={{ title: 'Auth Testing Tools' }} />
+      
       {/* Confirmation Modals */}
       <ConfirmationModal
         visible={corruptTokenModalVisible}
@@ -155,18 +157,6 @@ export default function DevToolsScreen() {
         icon="sign-out"
         confirmButtonColor={Theme.COLORS.ERROR}
       />
-      
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={navigateBack}
-        >
-          <FontAwesome name="chevron-left" size={18} color={Theme.COLORS.WHITE} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Developer Tools</Text>
-        <View style={styles.backButton} />
-      </View>
       
       <ScrollView style={styles.scrollContainer}>
         {/* Info Section */}
@@ -276,6 +266,17 @@ export default function DevToolsScreen() {
             4. If you get stuck, use the Force Logout option.
           </Text>
         </View>
+        
+        {/* Back Button */}
+        <TouchableOpacity 
+          style={styles.backButtonContainer}
+          onPress={navigateBack}
+        >
+          <View style={styles.backButton}>
+            <FontAwesome name="arrow-left" size={18} color={Theme.COLORS.WHITE} style={styles.buttonIcon} />
+            <Text style={styles.buttonText}>Back to Dev Tools</Text>
+          </View>
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -285,25 +286,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    backgroundColor: Theme.COLORS.PRIMARY,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: Theme.COLORS.WHITE,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   scrollContainer: {
     flex: 1,
@@ -396,5 +378,17 @@ const styles = StyleSheet.create({
     color: Theme.COLORS.DEFAULT,
     marginBottom: 10,
     lineHeight: 20,
+  },
+  backButtonContainer: {
+    marginVertical: 20,
+    marginHorizontal: 20,
+  },
+  backButton: {
+    backgroundColor: Theme.COLORS.PRIMARY,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
   },
 });

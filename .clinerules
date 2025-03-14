@@ -1,0 +1,105 @@
+# Security
+
+## Sensitive Files
+
+DO NOT read or modify:
+
+-   .env files
+-   \*_/config/secrets._
+-   \*_/_.pem
+-   Any file containing API keys, tokens, or credentials
+
+## Security Practices
+
+-   Never commit sensitive files
+-   Use environment variables for secrets
+-   Keep credentials out of logs and output
+
+# Memory Bank
+
+## Location
+
+The memory bank is located in the `docs/memory-bank/` directory and contains the following files:
+
+-   `README.md`: Overview of the memory bank structure and usage
+-   `projectbrief.md`: Core project vision, goals, and high-level architecture
+-   `productContext.md`: User experience, problem-solution mapping, and feature prioritization
+-   `systemPatterns.md`: Detailed architecture, design patterns, and system components
+-   `techContext.md`: Technology stack, implementation details, and development environment
+-   `activeContext.md`: Current development focus, recent changes, and active decisions
+-   `progress.md`: Completed features, in-progress work, known issues, and next steps
+
+## Usage Guidelines
+
+-   Always read the memory bank files at the start of a new task
+-   Update the memory bank when making significant changes to the codebase
+-   Ensure consistency across all memory bank files when making updates
+-   Follow the recommended reading order for new team members:
+    1. `projectbrief.md`
+    2. `productContext.md`
+    3. `systemPatterns.md`
+    4. `techContext.md`
+    5. `activeContext.md`
+    6. `progress.md`
+
+## Maintenance Schedule
+
+-   Update `progress.md` and `activeContext.md` after each sprint
+-   Update `systemPatterns.md` and `techContext.md` after major architectural changes
+-   Update `projectbrief.md` and `productContext.md` after product direction changes
+
+# Code Conventions
+
+## TypeScript
+
+-   Use TypeScript for all new code
+-   Define interfaces for all data structures
+-   Use proper typing for function parameters and return values
+-   Avoid using `any` type when possible
+
+## React Native
+
+-   Use functional components with hooks
+-   Follow the component-based architecture
+-   Use the Context API for state management
+-   Implement proper error boundaries
+
+## NestJS
+
+-   Follow the module-based architecture
+-   Use dependency injection for services
+-   Implement proper validation with class-validator
+-   Use guards for authentication and authorization
+
+## Database
+
+-   Use TypeORM for database operations
+-   Implement proper migrations for schema changes
+-   Use TimescaleDB for time-series data
+-   Follow the repository pattern for data access
+
+# Development Workflow
+
+## Feature Development
+
+1. Understand the requirements by reading the memory bank
+2. Create a plan for implementation
+3. Implement the feature with proper tests
+4. Submit for code review
+5. Update the memory bank with new information
+
+## Bug Fixes
+
+1. Reproduce the issue
+2. Identify the root cause
+3. Implement a fix with proper tests
+4. Verify the fix resolves the issue
+5. Document the fix in the memory bank if significant
+
+## Code Reviews
+
+-   Review code for functionality, readability, and maintainability
+-   Ensure code follows project conventions
+-   Verify proper error handling and edge cases
+-   Check for security vulnerabilities
+-   Ensure proper documentation
