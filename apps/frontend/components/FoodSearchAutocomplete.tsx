@@ -94,39 +94,86 @@ const FoodSearchAutocomplete = forwardRef<FoodSearchAutocompleteRef, FoodSearchA
     debounce(async (text: string) => {
       if (text.length < 2) {
         setSuggestions([]);
+        setShowSuggestions(false);
         return;
       }
       
       try {
         setLoading(true);
+        // Clear previous suggestions immediately when starting a new search
+        setSuggestions([]);
+        
+        // Store the current query to verify it's still relevant when response arrives
+        const currentQuery = text;
+        
+        console.log(`Sending autocomplete request for "${currentQuery}"`);
         const suggestionsData = await getFoodAutocompleteSuggestions(text);
-        // Hardcoded limit to 5 suggestions
-        if (Array.isArray(suggestionsData)) {
-          setSuggestions(suggestionsData.slice(0, 5));
-          setShowSuggestions(true);
-          console.log('Suggestions received:', suggestionsData.slice(0, 5));
+        console.log(`Raw autocomplete response for "${currentQuery}":`, suggestionsData);
+        
+        // Only update suggestions if the query is still the same
+        // This prevents race conditions with fast typing
+        if (query === currentQuery) {
+          // Limit to 5 suggestions as per requirements
+          if (Array.isArray(suggestionsData)) {
+            if (suggestionsData.length === 0) {
+              console.log(`No suggestions received for "${currentQuery}"`);
+              setSuggestions([]);
+              setShowSuggestions(false);
+            } else {
+              // Force lowercase for consistent display and comparison
+              const processedSuggestions = suggestionsData
+                .map(suggestion => suggestion.toLowerCase())
+                // Remove duplicates
+                .filter((suggestion, index, self) => self.indexOf(suggestion) === index)
+                .slice(0, 5);
+                
+              console.log(`Processed suggestions for "${currentQuery}" (${processedSuggestions.length}):`, processedSuggestions);
+              
+              // Only show suggestions if we have any after processing
+              if (processedSuggestions.length > 0) {
+                setSuggestions(processedSuggestions);
+                setShowSuggestions(true);
+                console.log(`Setting ${processedSuggestions.length} suggestions for "${currentQuery}"`);
+              } else {
+                setSuggestions([]);
+                setShowSuggestions(false);
+                console.log(`No suggestions to show after processing for "${currentQuery}"`);
+              }
+            }
+          } else {
+            console.error('Unexpected response format for suggestions:', suggestionsData);
+            setSuggestions([]);
+            setShowSuggestions(false);
+          }
         } else {
-          console.error('Unexpected response format for suggestions:', suggestionsData);
-          setSuggestions([]);
+          console.log(`Ignoring stale suggestions for "${currentQuery}" as current query is now "${query}"`);
         }
       } catch (error) {
         console.error('Error fetching suggestions:', error);
         setSuggestions([]);
+        setShowSuggestions(false);
       } finally {
-        setLoading(false);
+        // Only update loading state if this is still the current query
+        if (text === query) {
+          setLoading(false);
+        }
       }
     }, 300),
-    []
+    [query] // Add query as a dependency to recreate the debounced function when query changes
   );
   
   // Effect to trigger debounced search for autocomplete
   useEffect(() => {
-    if (query.length >= 2) {
-      debouncedGetSuggestions(query);
-      setShowResults(false);
-    } else {
+    // Reset UI state when query changes
+    if (query.length < 2) {
       setSuggestions([]);
       setShowSuggestions(false);
+      setLoading(false);
+    } else {
+      // Hide results when typing
+      setShowResults(false);
+      // Trigger debounced search
+      debouncedGetSuggestions(query);
     }
     
     // Cleanup

@@ -11,9 +11,21 @@ import {
   ActivityIndicator,
   Alert
 } from 'react-native';
-import { FontAwesome } from '@expo/vector-icons';
+import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 
 import Theme from '@/constants/Theme';
+
+// Utility function to round to 1 decimal place
+const roundToOneDecimal = (value: number): number => {
+  return Math.round(value * 10) / 10;
+};
+
+// Interface for measurement options
+interface MeasurementOption {
+  label: string;
+  value: string;
+  weight: number;
+}
 import { 
   getFoodLogs, 
   createFoodLog, 
@@ -39,7 +51,12 @@ export default function FoodLogScreen() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
   const [quantity, setQuantity] = useState('1');
+  const [quantityError, setQuantityError] = useState<string | null>(null);
+  const [isEditingQuantity, setIsEditingQuantity] = useState(false);
   const [mealType, setMealType] = useState(MEAL_TYPES.BREAKFAST);
+  const [selectedMeasure, setSelectedMeasure] = useState<MeasurementOption | null>(null);
+  const [showMeasureSelector, setShowMeasureSelector] = useState(false);
+  const [measureOptions, setMeasureOptions] = useState<MeasurementOption[]>([]);
   const foodSearchRef = useRef<FoodSearchAutocompleteRef>(null);
   
   // Focus the search input when the modal opens
@@ -90,29 +107,81 @@ export default function FoodLogScreen() {
     }
   };
   
+  // Process measures from the selected food item
+  const processMeasures = (food: FoodItem) => {
+    // Default measures if none are provided
+    const defaultMeasures: MeasurementOption[] = [
+      { label: 'Serving', value: 'serving', weight: 100 }
+    ];
+    
+    // If the food has measures, convert them to our format
+    if (food.measures && food.measures.length > 0) {
+      const options = food.measures.map(measure => ({
+        label: `${measure.label} (${Math.round(measure.weight)}g)`,
+        value: measure.label.toLowerCase(),
+        weight: measure.weight
+      }));
+      
+      // Add grams as an option if not already present
+      if (!options.some(option => option.value === 'gram')) {
+        options.push({ label: 'Gram', value: 'gram', weight: 1 });
+      }
+      
+      setMeasureOptions(options);
+      setSelectedMeasure(options[0]); // Default to first measure
+    } else {
+      // Use default measures if none provided
+      setMeasureOptions(defaultMeasures);
+      setSelectedMeasure(defaultMeasures[0]);
+    }
+  };
+  
   // Handle food item selection from the autocomplete component
   const handleFoodSelect = (food: FoodItem) => {
     setSelectedFood(food);
+    processMeasures(food);
+  };
+  
+  // Calculate nutrition values based on quantity and measure
+  const calculateNutrition = (nutrientValue: number | undefined, quantity: number): number => {
+    if (!nutrientValue || !selectedMeasure) return 0;
+    
+    // If the measure is gram, we need to convert from per 100g to per gram
+    const conversionFactor = selectedMeasure.value === 'gram' 
+      ? selectedMeasure.weight / 100
+      : selectedMeasure.weight / 100;
+    
+    return roundToOneDecimal(nutrientValue * quantity * conversionFactor);
   };
   
   // Handle adding food to log
   const handleAddFood = async () => {
-    if (!selectedFood) return;
+    if (!selectedFood || !selectedMeasure) return;
     
     setIsSubmitting(true);
     
     try {
+      const parsedQuantity = parseFloat(quantity);
+      
       // Create food log request
       const foodLogRequest: CreateFoodLogRequest = {
         foodName: selectedFood.food.label,
-        amount: parseFloat(quantity),
-        unit: 'serving',
-        calories: (selectedFood.food.nutrients?.ENERC_KCAL || 0) * parseFloat(quantity),
-        protein: (selectedFood.food.nutrients?.PROCNT || 0) * parseFloat(quantity),
-        carbs: (selectedFood.food.nutrients?.CHOCDF || 0) * parseFloat(quantity),
-        fat: (selectedFood.food.nutrients?.FAT || 0) * parseFloat(quantity),
+        amount: parsedQuantity,
+        unit: selectedMeasure.value,
+        calories: calculateNutrition(selectedFood.food.nutrients?.ENERC_KCAL, parsedQuantity),
+        protein: calculateNutrition(selectedFood.food.nutrients?.PROCNT, parsedQuantity),
+        carbs: calculateNutrition(selectedFood.food.nutrients?.CHOCDF, parsedQuantity),
+        fat: calculateNutrition(selectedFood.food.nutrients?.FAT, parsedQuantity),
         time: new Date().toISOString(),
       };
+      
+      // Log additional metadata for debugging (not sent to server)
+      console.log('Additional food metadata:', {
+        foodId: selectedFood.food.foodId,
+        category: selectedFood.food.category,
+        brand: selectedFood.food.brand,
+        measureWeight: selectedMeasure.weight
+      });
       
       // Call API to create food log
       await createFoodLog(foodLogRequest);
@@ -280,7 +349,7 @@ export default function FoodLogScreen() {
       ) : error ? (
         <View style={styles.errorContainer}>
           <FontAwesome name="exclamation-circle" size={40} color={Theme.COLORS.ERROR} />
-          <Text style={styles.errorText}>{error}</Text>
+          <Text style={styles.errorMessageText}>{error}</Text>
           <TouchableOpacity 
             style={styles.retryButton}
             onPress={fetchFoodLogs}
@@ -396,47 +465,98 @@ export default function FoodLogScreen() {
                   <View style={styles.nutritionItem}>
                     <Text style={styles.nutritionLabel}>Calories</Text>
                     <Text style={styles.nutritionValue}>
-                      {Math.round((selectedFood.food.nutrients?.ENERC_KCAL || 0) * Number(quantity))}
+                      {calculateNutrition(selectedFood.food.nutrients?.ENERC_KCAL, Number(quantity))}
                     </Text>
                   </View>
                   <View style={styles.nutritionItem}>
                     <Text style={styles.nutritionLabel}>Protein</Text>
                     <Text style={styles.nutritionValue}>
-                      {Math.round((selectedFood.food.nutrients?.PROCNT || 0) * Number(quantity))}g
+                      {calculateNutrition(selectedFood.food.nutrients?.PROCNT, Number(quantity))}g
                     </Text>
                   </View>
                   <View style={styles.nutritionItem}>
                     <Text style={styles.nutritionLabel}>Carbs</Text>
                     <Text style={styles.nutritionValue}>
-                      {Math.round((selectedFood.food.nutrients?.CHOCDF || 0) * Number(quantity))}g
+                      {calculateNutrition(selectedFood.food.nutrients?.CHOCDF, Number(quantity))}g
                     </Text>
                   </View>
                   <View style={styles.nutritionItem}>
                     <Text style={styles.nutritionLabel}>Fat</Text>
                     <Text style={styles.nutritionValue}>
-                      {Math.round((selectedFood.food.nutrients?.FAT || 0) * Number(quantity))}g
+                      {calculateNutrition(selectedFood.food.nutrients?.FAT, Number(quantity))}g
                     </Text>
                   </View>
+                  {quantityError && (
+                    <Text style={styles.errorText}>{quantityError}</Text>
+                  )}
                 </View>
                 
+                {/* Measurement Selector */}
+                <View style={styles.measurementContainer}>
+                  <Text style={styles.inputLabel}>Measurement</Text>
+                  <TouchableOpacity 
+                    style={styles.measurementSelector}
+                    onPress={() => setShowMeasureSelector(true)}
+                  >
+                    <Text style={styles.measurementText}>
+                      {selectedMeasure?.label || 'Select a measurement'}
+                    </Text>
+                    <MaterialIcons name="arrow-drop-down" size={24} color={Theme.COLORS.DEFAULT} />
+                  </TouchableOpacity>
+                </View>
+                
+                {/* Quantity Input */}
                 <View style={styles.quantityContainer}>
-                  <Text style={styles.inputLabel}>Quantity</Text>
+                  <View style={styles.labelContainer}>
+                    <Text style={styles.inputLabel}>Quantity</Text>
+                    <Text style={styles.editHint}>(tap to edit)</Text>
+                  </View>
                   <View style={styles.quantityControls}>
                     <TouchableOpacity 
                       style={styles.quantityButton}
-                      onPress={() => setQuantity(prev => Math.max(0.5, Number(prev) - 0.5).toString())}
+                      onPress={() => setQuantity(prev => Math.max(0.1, roundToOneDecimal(Number(prev) - 0.1)).toString())}
                     >
                       <FontAwesome name="minus" size={16} color={Theme.COLORS.PRIMARY} />
                     </TouchableOpacity>
                     <TextInput
-                      style={styles.quantityInput}
+                      style={[
+                        styles.quantityInput,
+                        isEditingQuantity && styles.quantityInputFocused,
+                        quantityError && styles.quantityInputError
+                      ]}
                       value={quantity}
-                      onChangeText={setQuantity}
+                      onChangeText={(text) => {
+                        // Allow only numeric input with up to one decimal place
+                        if (/^\d*\.?\d{0,1}$/.test(text) || text === '') {
+                          setQuantity(text);
+                          setQuantityError(null);
+                        }
+                      }}
+                      onFocus={() => setIsEditingQuantity(true)}
+                      onBlur={() => {
+                        setIsEditingQuantity(false);
+                        
+                        // Validate on blur
+                        const num = parseFloat(quantity);
+                        if (isNaN(num)) {
+                          setQuantityError('Please enter a valid number');
+                          setQuantity('1');
+                        } else if (num <= 0) {
+                          setQuantityError('Quantity must be greater than 0');
+                          setQuantity('0.1');
+                        } else if (num > 100) {
+                          setQuantityError('Quantity must be less than 100');
+                          setQuantity('100');
+                        } else {
+                          // Format to one decimal place
+                          setQuantity(roundToOneDecimal(num).toString());
+                        }
+                      }}
                       keyboardType="numeric"
                     />
                     <TouchableOpacity 
                       style={styles.quantityButton}
-                      onPress={() => setQuantity(prev => (Number(prev) + 0.5).toString())}
+                      onPress={() => setQuantity(prev => roundToOneDecimal(Number(prev) + 0.1).toString())}
                     >
                       <FontAwesome name="plus" size={16} color={Theme.COLORS.PRIMARY} />
                     </TouchableOpacity>
@@ -465,6 +585,45 @@ export default function FoodLogScreen() {
           </View>
         </View>
       </Modal>
+      
+      {/* Measurement Selector Modal */}
+      <Modal
+        visible={showMeasureSelector}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowMeasureSelector(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={[styles.modalContent, { maxHeight: '60%' }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Measurement</Text>
+              <TouchableOpacity onPress={() => setShowMeasureSelector(false)}>
+                <FontAwesome name="times" size={24} color={Theme.COLORS.MUTED} />
+              </TouchableOpacity>
+            </View>
+            
+            <FlatList
+              data={measureOptions}
+              keyExtractor={(item, index) => `measure-${index}`}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.measureItem}
+                  onPress={() => {
+                    setSelectedMeasure(item);
+                    setShowMeasureSelector(false);
+                  }}
+                >
+                  <Text style={styles.measureItemText}>{item.label}</Text>
+                  {selectedMeasure?.value === item.value && (
+                    <FontAwesome name="check" size={16} color={Theme.COLORS.PRIMARY} />
+                  )}
+                </TouchableOpacity>
+              )}
+              ItemSeparatorComponent={() => <View style={styles.measureSeparator} />}
+            />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -473,6 +632,40 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  measurementContainer: {
+    marginBottom: 15,
+  },
+  measurementSelector: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 8,
+    backgroundColor: '#fff',
+  },
+  measurementText: {
+    fontSize: 16,
+    color: Theme.COLORS.DEFAULT,
+  },
+  measureItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 15,
+    paddingHorizontal: 15,
+  },
+  measureItemText: {
+    fontSize: 16,
+    color: Theme.COLORS.DEFAULT,
+  },
+  measureSeparator: {
+    height: 1,
+    backgroundColor: '#f0f0f0',
+    marginHorizontal: 15,
   },
   headerContainer: {
     flexDirection: 'row',
@@ -500,7 +693,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
   },
-  errorText: {
+  errorMessageText: {
     marginTop: 10,
     marginBottom: 20,
     fontSize: 16,
@@ -786,6 +979,23 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: Theme.COLORS.DEFAULT,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 8,
+    backgroundColor: '#fff',
+  },
+  quantityInputFocused: {
+    borderColor: Theme.COLORS.PRIMARY,
+  },
+  quantityInputError: {
+    borderColor: Theme.COLORS.ERROR,
+  },
+  errorText: {
+    color: Theme.COLORS.ERROR,
+    fontSize: 12,
+    marginTop: 4,
   },
   addFoodButton: {
     backgroundColor: Theme.COLORS.PRIMARY,
@@ -807,5 +1017,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Theme.COLORS.MUTED,
     textAlign: 'center',
+  },
+  labelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  editHint: {
+    fontSize: 12,
+    color: Theme.COLORS.MUTED,
+    marginLeft: 8,
+    fontStyle: 'italic',
   },
 });

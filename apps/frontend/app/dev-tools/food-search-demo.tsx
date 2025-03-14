@@ -42,6 +42,7 @@ export default function FoodSearchDemo() {
         <Text style={styles.title}>Food Search with Autocomplete</Text>
         <Text style={styles.description}>
           Search for food items using the Edamam Food Database API with autocomplete suggestions.
+          The autocomplete will show up to 5 suggestions as you type.
         </Text>
         
         <View style={styles.searchContainer}>

@@ -5,6 +5,7 @@ import { Repository, In } from 'typeorm';
 import axios from 'axios';
 import { FoodCache } from './entities/food-cache.entity';
 import { SearchTermCache } from './entities/search-term-cache.entity';
+import { AutocompleteCache } from './entities/autocomplete-cache.entity';
 
 @Injectable()
 export class EdamamService {
@@ -20,7 +21,9 @@ export class EdamamService {
     @InjectRepository(FoodCache)
     private foodCacheRepository: Repository<FoodCache>,
     @InjectRepository(SearchTermCache)
-    private searchTermCacheRepository: Repository<SearchTermCache>
+    private searchTermCacheRepository: Repository<SearchTermCache>,
+    @InjectRepository(AutocompleteCache)
+    private autocompleteCacheRepository: Repository<AutocompleteCache>
   ) {
     // Legacy keys (fallback)
     this.appId = this.configService.get<string>('edamam.appId') || '';
@@ -74,6 +77,80 @@ export class EdamamService {
   }
 
   /**
+   * Get autocomplete suggestions from Edamam API
+   * @param query Search query
+   * @returns Array of autocomplete suggestions
+   */
+  async getEdamamAutocompleteSuggestions(query: string): Promise<string[]> {
+    try {
+      this.logger.log(`Calling Edamam Autocomplete API for query: "${query}"`);
+      
+      const response = await axios.get('https://api.edamam.com/auto-complete', {
+        params: {
+          app_id: this.foodAppId,
+          app_key: this.foodAppKey,
+          q: query,
+          limit: 10
+        }
+      });
+      
+      if (Array.isArray(response.data)) {
+        this.logger.log(`Received ${response.data.length} autocomplete suggestions from Edamam API`);
+        return response.data;
+      } else {
+        this.logger.warn(`Unexpected response format from Edamam Autocomplete API: ${JSON.stringify(response.data)}`);
+        return [];
+      }
+    } catch (error) {
+      this.logger.error(`Error getting autocomplete suggestions from Edamam API: ${error.message}`, error.stack);
+      if (axios.isAxiosError(error)) {
+        this.logger.error(`Axios error details: ${JSON.stringify(error.response?.data || {})}`);
+      }
+      return [];
+    }
+  }
+
+  /**
+   * Cache autocomplete suggestions
+   * @param query Original query
+   * @param suggestions Autocomplete suggestions
+   */
+  private async cacheAutocompleteSuggestions(query: string, suggestions: string[]): Promise<void> {
+    try {
+      const normalizedQuery = query.toLowerCase().trim();
+      this.logger.log(`Caching ${suggestions.length} autocomplete suggestions for query: "${normalizedQuery}"`);
+      
+      // Check if the query already exists in the cache
+      const existingCache = await this.autocompleteCacheRepository.findOne({
+        where: { query: normalizedQuery }
+      });
+      
+      if (existingCache) {
+        // Update existing cache entry
+        existingCache.lastUsed = new Date();
+        existingCache.usageCount += 1;
+        existingCache.suggestions = suggestions;
+        
+        await this.autocompleteCacheRepository.save(existingCache);
+        this.logger.log(`Updated existing autocomplete cache entry for query: "${normalizedQuery}"`);
+      } else {
+        // Create new cache entry
+        const autocompleteCache = this.autocompleteCacheRepository.create({
+          query: normalizedQuery,
+          suggestions,
+          lastUsed: new Date()
+        });
+        
+        await this.autocompleteCacheRepository.save(autocompleteCache);
+        this.logger.log(`Created new autocomplete cache entry for query: "${normalizedQuery}"`);
+      }
+    } catch (error) {
+      this.logger.error(`Error caching autocomplete suggestions: ${error.message}`, error.stack);
+      // Don't throw the error, just log it
+    }
+  }
+
+  /**
    * Get autocomplete suggestions for food search
    * @param query Search query
    * @returns Array of food name suggestions
@@ -82,38 +159,41 @@ export class EdamamService {
     // Normalize the query
     const normalizedQuery = query.toLowerCase().trim();
     
+    this.logger.log(`Getting autocomplete suggestions for query: "${normalizedQuery}"`);
+    
     if (normalizedQuery.length < 2) {
+      this.logger.log('Query too short, returning empty array');
       return [];
     }
     
-    // Search for terms that start with the query
-    const searchTerms = await this.searchTermCacheRepository.find();
+    // Check if the query exists in the autocomplete cache
+    const cachedAutocomplete = await this.autocompleteCacheRepository.findOne({
+      where: { query: normalizedQuery }
+    });
     
-    // Filter terms that start with the query
-    const matchingTerms = searchTerms
-      .filter(term => term.searchTerm.startsWith(normalizedQuery))
-      .sort((a, b) => b.usageCount - a.usageCount) // Sort by usage count
-      .slice(0, 10) // Limit to 10 results
-      .map(term => term.searchTerm);
-    
-    // If we have enough matching terms, return them
-    if (matchingTerms.length >= 5) {
-      return matchingTerms;
+    if (cachedAutocomplete) {
+      this.logger.log(`Cache hit for autocomplete query: "${normalizedQuery}"`);
+      
+      // Update usage statistics
+      cachedAutocomplete.lastUsed = new Date();
+      cachedAutocomplete.usageCount += 1;
+      await this.autocompleteCacheRepository.save(cachedAutocomplete);
+      
+      return cachedAutocomplete.suggestions;
     }
     
-    // Otherwise, search for food names that contain the query
-    const foodItems = await this.foodCacheRepository
-      .createQueryBuilder('food')
-      .where('LOWER(food.foodName) LIKE :query', { query: `%${normalizedQuery}%` })
-      .orderBy('food.usageCount', 'DESC')
-      .take(10 - matchingTerms.length)
-      .getMany();
+    // If not in cache, call the Edamam Autocomplete API
+    this.logger.log(`Cache miss for autocomplete query: "${normalizedQuery}", calling Edamam Autocomplete API`);
     
-    // Extract food names and combine with matching terms
-    const foodNames = foodItems.map(food => food.foodName.toLowerCase());
+    const apiSuggestions = await this.getEdamamAutocompleteSuggestions(normalizedQuery);
     
-    // Combine and deduplicate
-    return [...new Set([...matchingTerms, ...foodNames])];
+    // Cache the API suggestions for future use
+    if (apiSuggestions.length > 0) {
+      await this.cacheAutocompleteSuggestions(normalizedQuery, apiSuggestions);
+    }
+    
+    this.logger.log(`Returning ${apiSuggestions.length} autocomplete suggestions from API for query: "${normalizedQuery}"`);
+    return apiSuggestions;
   }
 
   /**
@@ -484,6 +564,7 @@ export class EdamamService {
   async getCacheStats() {
     const foodCount = await this.foodCacheRepository.count();
     const searchTermCount = await this.searchTermCacheRepository.count();
+    const autocompleteCount = await this.autocompleteCacheRepository.count();
     
     const foodWithFullDetails = await this.foodCacheRepository.count({
       where: { hasFullDetails: true }
@@ -499,9 +580,15 @@ export class EdamamService {
       take: 10
     });
     
+    const mostUsedAutocompleteQueries = await this.autocompleteCacheRepository.find({
+      order: { usageCount: 'DESC' },
+      take: 10
+    });
+    
     return {
       foodCount,
       searchTermCount,
+      autocompleteCount,
       foodWithFullDetails,
       cacheHitRate: {
         food: foodWithFullDetails / foodCount,
@@ -514,6 +601,11 @@ export class EdamamService {
       mostUsedSearchTerms: mostUsedSearchTerms.map(s => ({
         searchTerm: s.searchTerm,
         usageCount: s.usageCount
+      })),
+      mostUsedAutocompleteQueries: mostUsedAutocompleteQueries.map(a => ({
+        query: a.query,
+        usageCount: a.usageCount,
+        suggestionCount: a.suggestions.length
       }))
     };
   }
