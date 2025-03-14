@@ -216,6 +216,20 @@ export async function getFoodNutrition(foodId: string): Promise<any> {
   }
 }
 
+/**
+ * Get food cache statistics
+ * @returns Cache statistics including hit rates and most used items
+ */
+export async function getFoodCacheStats(): Promise<any> {
+  try {
+    const response = await apiClient.loggingServiceGet('/food/cache/stats');
+    return response.data;
+  } catch (error) {
+    console.error('Error getting food cache stats:', error);
+    throw error;
+  }
+}
+
 // Exercise Logging
 
 /**

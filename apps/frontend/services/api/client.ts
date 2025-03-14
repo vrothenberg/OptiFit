@@ -48,10 +48,13 @@ class ApiClient {
   private setupAuthInterceptors(client: AxiosInstance): void {
     client.interceptors.request.use(
       async (config) => {
-        // Skip authentication for login, register, and legacy user creation endpoints
+        // Skip authentication for login, register, legacy user creation, and food search endpoints
         const isAuthEndpoint = 
           config.url?.includes('/auth/login') || 
           config.url?.includes('/auth/register') ||
+          config.url?.includes('/food/search') ||
+          config.url?.includes('/food/autocomplete') ||
+          config.url?.includes('/food/nutrition') ||
           (config.url === '/user' && config.method === 'post'); // Exact match for legacy user creation
 
         console.log(`Request to ${config.url}, auth required: ${!isAuthEndpoint}`);

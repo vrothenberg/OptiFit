@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   StyleSheet, 
   View, 
@@ -25,20 +25,7 @@ import {
   FoodLogsResponse, 
   CreateFoodLogRequest 
 } from '@/services/api/types';
-
-// Common food items for quick selection
-const COMMON_FOOD_ITEMS = [
-  { id: 1, name: 'Oatmeal', calories: 150, protein: 6, carbs: 27, fat: 2.5 },
-  { id: 2, name: 'Scrambled Eggs', calories: 140, protein: 12, carbs: 1, fat: 10 },
-  { id: 3, name: 'Banana', calories: 105, protein: 1.3, carbs: 27, fat: 0.4 },
-  { id: 4, name: 'Greek Yogurt', calories: 100, protein: 17, carbs: 6, fat: 0.4 },
-  { id: 5, name: 'Chicken Breast', calories: 165, protein: 31, carbs: 0, fat: 3.6 },
-  { id: 6, name: 'Brown Rice', calories: 215, protein: 5, carbs: 45, fat: 1.8 },
-  { id: 7, name: 'Salmon', calories: 206, protein: 22, carbs: 0, fat: 13 },
-  { id: 8, name: 'Broccoli', calories: 55, protein: 3.7, carbs: 11, fat: 0.6 },
-  { id: 9, name: 'Sweet Potato', calories: 112, protein: 2, carbs: 26, fat: 0.1 },
-  { id: 10, name: 'Avocado', calories: 234, protein: 2.9, carbs: 12, fat: 21 },
-];
+import FoodSearchAutocomplete, { FoodItem, FoodSearchAutocompleteRef } from '@/components/FoodSearchAutocomplete';
 
 // Meal types for categorizing food logs
 const MEAL_TYPES = {
@@ -49,11 +36,22 @@ const MEAL_TYPES = {
 };
 
 export default function FoodLogScreen() {
-  const [searchQuery, setSearchQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
-  const [selectedFood, setSelectedFood] = useState<any>(null);
+  const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
   const [quantity, setQuantity] = useState('1');
   const [mealType, setMealType] = useState(MEAL_TYPES.BREAKFAST);
+  const foodSearchRef = useRef<FoodSearchAutocompleteRef>(null);
+  
+  // Focus the search input when the modal opens
+  useEffect(() => {
+    if (showAddModal) {
+      // Small delay to ensure the modal is fully rendered
+      const timer = setTimeout(() => {
+        foodSearchRef.current?.focus();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [showAddModal]);
   
   // API-related state
   const [foodLogs, setFoodLogs] = useState<FoodLog[]>([]);
@@ -92,13 +90,8 @@ export default function FoodLogScreen() {
     }
   };
   
-  // Filter food items based on search query
-  const filteredFoodItems = COMMON_FOOD_ITEMS.filter((item: any) => 
-    item.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-  
-  // Handle food item selection
-  const handleFoodSelect = (food: any) => {
+  // Handle food item selection from the autocomplete component
+  const handleFoodSelect = (food: FoodItem) => {
     setSelectedFood(food);
   };
   
@@ -111,13 +104,13 @@ export default function FoodLogScreen() {
     try {
       // Create food log request
       const foodLogRequest: CreateFoodLogRequest = {
-        foodName: selectedFood.name,
+        foodName: selectedFood.food.label,
         amount: parseFloat(quantity),
         unit: 'serving',
-        calories: selectedFood.calories * parseFloat(quantity),
-        protein: selectedFood.protein * parseFloat(quantity),
-        carbs: selectedFood.carbs * parseFloat(quantity),
-        fat: selectedFood.fat * parseFloat(quantity),
+        calories: (selectedFood.food.nutrients?.ENERC_KCAL || 0) * parseFloat(quantity),
+        protein: (selectedFood.food.nutrients?.PROCNT || 0) * parseFloat(quantity),
+        carbs: (selectedFood.food.nutrients?.CHOCDF || 0) * parseFloat(quantity),
+        fat: (selectedFood.food.nutrients?.FAT || 0) * parseFloat(quantity),
         time: new Date().toISOString(),
       };
       
@@ -383,19 +376,17 @@ export default function FoodLogScreen() {
             </View>
             
             <View style={styles.searchContainer}>
-              <FontAwesome name="search" size={16} color={Theme.COLORS.MUTED} style={styles.searchIcon} />
-              <TextInput
-                style={styles.searchInput}
+              <FoodSearchAutocomplete
+                ref={foodSearchRef}
+                onFoodSelect={handleFoodSelect}
                 placeholder="Search for food..."
-                value={searchQuery}
-                onChangeText={setSearchQuery}
               />
             </View>
             
             {selectedFood ? (
               <View style={styles.selectedFoodContainer}>
                 <View style={styles.selectedFoodHeader}>
-                  <Text style={styles.selectedFoodName}>{selectedFood.name}</Text>
+                  <Text style={styles.selectedFoodName}>{selectedFood.food.label}</Text>
                   <TouchableOpacity onPress={() => setSelectedFood(null)}>
                     <FontAwesome name="times" size={16} color={Theme.COLORS.MUTED} />
                   </TouchableOpacity>
@@ -404,19 +395,27 @@ export default function FoodLogScreen() {
                 <View style={styles.nutritionInfo}>
                   <View style={styles.nutritionItem}>
                     <Text style={styles.nutritionLabel}>Calories</Text>
-                    <Text style={styles.nutritionValue}>{selectedFood.calories * Number(quantity)}</Text>
+                    <Text style={styles.nutritionValue}>
+                      {Math.round((selectedFood.food.nutrients?.ENERC_KCAL || 0) * Number(quantity))}
+                    </Text>
                   </View>
                   <View style={styles.nutritionItem}>
                     <Text style={styles.nutritionLabel}>Protein</Text>
-                    <Text style={styles.nutritionValue}>{selectedFood.protein * Number(quantity)}g</Text>
+                    <Text style={styles.nutritionValue}>
+                      {Math.round((selectedFood.food.nutrients?.PROCNT || 0) * Number(quantity))}g
+                    </Text>
                   </View>
                   <View style={styles.nutritionItem}>
                     <Text style={styles.nutritionLabel}>Carbs</Text>
-                    <Text style={styles.nutritionValue}>{selectedFood.carbs * Number(quantity)}g</Text>
+                    <Text style={styles.nutritionValue}>
+                      {Math.round((selectedFood.food.nutrients?.CHOCDF || 0) * Number(quantity))}g
+                    </Text>
                   </View>
                   <View style={styles.nutritionItem}>
                     <Text style={styles.nutritionLabel}>Fat</Text>
-                    <Text style={styles.nutritionValue}>{selectedFood.fat * Number(quantity)}g</Text>
+                    <Text style={styles.nutritionValue}>
+                      {Math.round((selectedFood.food.nutrients?.FAT || 0) * Number(quantity))}g
+                    </Text>
                   </View>
                 </View>
                 
@@ -457,30 +456,11 @@ export default function FoodLogScreen() {
                 </TouchableOpacity>
               </View>
             ) : (
-              <FlatList
-                data={filteredFoodItems}
-                keyExtractor={item => item.id.toString()}
-                style={styles.foodList}
-                renderItem={({ item }) => (
-                  <TouchableOpacity 
-                    style={styles.foodListItem}
-                    onPress={() => handleFoodSelect(item)}
-                  >
-                    <View>
-                      <Text style={styles.foodListItemName}>{item.name}</Text>
-                      <Text style={styles.foodListItemDetails}>
-                        P: {item.protein}g | C: {item.carbs}g | F: {item.fat}g
-                      </Text>
-                    </View>
-                    <Text style={styles.foodListItemCalories}>{item.calories} cal</Text>
-                  </TouchableOpacity>
-                )}
-                ListEmptyComponent={
-                  <Text style={styles.emptyListText}>
-                    No food items found. Try a different search term.
-                  </Text>
-                }
-              />
+              <View style={styles.searchInstructions}>
+                <Text style={styles.searchInstructionsText}>
+                  Search for a food item above and select it from the results.
+                </Text>
+              </View>
             )}
           </View>
         </View>
@@ -817,5 +797,15 @@ const styles = StyleSheet.create({
     color: Theme.COLORS.WHITE,
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  searchInstructions: {
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchInstructionsText: {
+    fontSize: 16,
+    color: Theme.COLORS.MUTED,
+    textAlign: 'center',
   },
 });
