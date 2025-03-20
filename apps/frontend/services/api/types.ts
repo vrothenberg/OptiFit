@@ -124,6 +124,9 @@ export interface FoodLog {
   carbs: number;
   fat: number;
   time: string;
+  mealType?: string;
+  foodId?: string; // Edamam food ID for retrieving complete data
+  measureWeight?: number; // Weight of the selected measure in grams
   geolocation?: {
     latitude: number;
     longitude: number;
@@ -142,6 +145,9 @@ export interface CreateFoodLogRequest {
   carbs: number;
   fat: number;
   time: string;
+  mealType?: string;
+  foodId?: string; // Edamam food ID for retrieving complete data
+  measureWeight?: number; // Weight of the selected measure in grams
   geolocation?: {
     latitude: number;
     longitude: number;
@@ -158,6 +164,9 @@ export interface UpdateFoodLogRequest {
   carbs?: number;
   fat?: number;
   time?: string;
+  mealType?: string;
+  foodId?: string; // Edamam food ID for retrieving complete data
+  measureWeight?: number; // Weight of the selected measure in grams
   geolocation?: {
     latitude: number;
     longitude: number;

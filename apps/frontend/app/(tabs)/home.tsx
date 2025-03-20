@@ -3,6 +3,7 @@ import { StyleSheet, View, Text, ScrollView, TouchableOpacity, ActivityIndicator
 import { FontAwesome } from '@expo/vector-icons';
 
 import Theme from '@/constants/Theme';
+import { roundToOneDecimal } from '@/components/food-log/FoodLogUtils';
 import { getCurrentUser, getLatestCircadianQuestionnaire } from '@/services/userService';
 import { 
   getFoodLogs, 
@@ -235,7 +236,7 @@ export default function DashboardScreen() {
               />
             </View>
             <Text style={styles.progressText}>
-              {foodSummary?.totalCalories || 0} / {nutritionGoals.caloriesGoal}
+              {Math.round(foodSummary?.totalCalories || 0)} / {nutritionGoals.caloriesGoal}
             </Text>
           </View>
           
@@ -254,7 +255,7 @@ export default function DashboardScreen() {
               />
             </View>
             <Text style={styles.progressText}>
-              {foodSummary?.totalProtein || 0}g / {nutritionGoals.proteinGoal}g
+              {roundToOneDecimal(foodSummary?.totalProtein || 0)}g / {nutritionGoals.proteinGoal}g
             </Text>
           </View>
           
@@ -273,7 +274,7 @@ export default function DashboardScreen() {
               />
             </View>
             <Text style={styles.progressText}>
-              {foodSummary?.totalCarbs || 0}g / {nutritionGoals.carbsGoal}g
+              {roundToOneDecimal(foodSummary?.totalCarbs || 0)}g / {nutritionGoals.carbsGoal}g
             </Text>
           </View>
           
@@ -292,7 +293,7 @@ export default function DashboardScreen() {
               />
             </View>
             <Text style={styles.progressText}>
-              {foodSummary?.totalFat || 0}g / {nutritionGoals.fatGoal}g
+              {roundToOneDecimal(foodSummary?.totalFat || 0)}g / {nutritionGoals.fatGoal}g
             </Text>
           </View>
         </View>
@@ -346,7 +347,7 @@ export default function DashboardScreen() {
           
           <View style={styles.exerciseSummaryItem}>
             <FontAwesome name="fire" size={24} color={Theme.COLORS.INFO} style={styles.exerciseSummaryIcon} />
-            <Text style={styles.exerciseSummaryValue}>{exerciseSummary?.totalCalories || 0}</Text>
+            <Text style={styles.exerciseSummaryValue}>{Math.round(exerciseSummary?.totalCalories || 0)}</Text>
             <Text style={styles.exerciseSummaryLabel}>Calories</Text>
           </View>
         </View>
@@ -386,7 +387,7 @@ export default function DashboardScreen() {
                     { color: activity.calories > 0 ? Theme.COLORS.DEFAULT : Theme.COLORS.SUCCESS }
                   ]}
                 >
-                  {activity.calories > 0 ? '+' : ''}{Math.abs(activity.calories)} cal
+                  {activity.calories > 0 ? '+' : ''}{Math.round(Math.abs(activity.calories))} cal
                 </Text>
               </View>
             ))

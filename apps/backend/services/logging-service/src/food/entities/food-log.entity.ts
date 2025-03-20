@@ -42,6 +42,15 @@ export class FoodLog {
   @Column('float')
   fat: number;
 
+  @Column('text', { nullable: true })
+  mealType: string;
+
+  @Column('text', { nullable: true })
+  foodId: string;
+
+  @Column('float', { nullable: true })
+  measureWeight: number;
+
   @Column('json', { nullable: true })
   geolocation: { latitude: number; longitude: number } | null;
 

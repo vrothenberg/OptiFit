@@ -43,6 +43,18 @@ export class CreateFoodLogDto {
   time: string;
 
   @IsOptional()
+  @IsString()
+  mealType?: string;
+
+  @IsOptional()
+  @IsString()
+  foodId?: string;
+
+  @IsOptional()
+  @IsNumber()
+  measureWeight?: number;
+
+  @IsOptional()
   @ValidateNested()
   @Type(() => GeolocationDto)
   geolocation?: GeolocationDto;
